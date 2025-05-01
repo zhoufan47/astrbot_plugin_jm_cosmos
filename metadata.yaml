@@ -1,0 +1,5 @@
+name: jmcomic
+version: 1.0.0
+author: JM漫画下载器
+description: 下载JM漫画并转为PDF，支持搜索、收藏和推荐
+repo: https://github.com/yourusername/astrbot_plugin_jm_comic 
