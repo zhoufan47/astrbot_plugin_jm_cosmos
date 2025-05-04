@@ -1,4 +1,4 @@
-# 🌟 JM-Cosmos（禁漫宇宙）
+# 🌟 JM-Cosmos
 ## 全能型JM漫画下载与管理工具
 
 这是一个用于AstrBot的JM漫画插件，可以下载JM漫画并转换为PDF或图片发送到QQ。
