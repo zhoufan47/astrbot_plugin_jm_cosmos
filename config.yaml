@@ -1,8 +1,0 @@
-domain_list:
-  - "18comic.vip"
-  - "jm365.xyz"
-  - "18comic.org"
-proxy: null  # 例如 "http://127.0.0.1:7890"
-avs_cookie: ""  # 登录后的Cookie，用于获取更多内容
-max_threads: 10  # 最大下载线程数
-debug_mode: false  # 调试模式，开启后会保存更多日志信息 

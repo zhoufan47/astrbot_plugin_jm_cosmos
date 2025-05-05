@@ -1,0 +1,33 @@
+{
+    "domain_list": {
+        "description": "禁漫镜像站域名列表",
+        "type": "list",
+        "hint": "可访问的禁漫镜像站域名，不需要添加http或https前缀",
+        "default": ["18comic.vip", "jm365.xyz", "18comic.org"]
+    },
+    "proxy": {
+        "description": "代理服务器",
+        "type": "string",
+        "hint": "访问禁漫网站的代理服务器，格式为: http://127.0.0.1:7890",
+        "obvious_hint": true,
+        "default": ""
+    },
+    "avs_cookie": {
+        "description": "AVS Cookie",
+        "type": "string",
+        "hint": "登录后的Cookie值，用于获取更多内容",
+        "default": ""
+    },
+    "max_threads": {
+        "description": "最大下载线程数",
+        "type": "int",
+        "hint": "同时下载的最大线程数，建议不超过20",
+        "default": 10
+    },
+    "debug_mode": {
+        "description": "调试模式",
+        "type": "bool",
+        "hint": "启用调试模式后会保存更多日志信息，帮助排查问题",
+        "default": false
+    }
+} 

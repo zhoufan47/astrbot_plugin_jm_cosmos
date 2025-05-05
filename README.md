@@ -1,4 +1,11 @@
+<div align="center">
+
 # 🌟 JM-Cosmos
+
+[![版本](https://img.shields.io/badge/版本-v1.0.5-blue.svg)](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos) [![许可证](https://img.shields.io/badge/许可证-MIT-green.svg)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/) [![AstrBot](https://img.shields.io/badge/AstrBot-3.4+-orange.svg)](https://github.com/Soulter/AstrBot) [![更新日期](https://img.shields.io/badge/更新日期-2025.05.05-lightgrey.svg)](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos)
+
+</div>
+
 ## 全能型JM漫画下载与管理工具
 
 这是一个用于AstrBot的JM漫画插件，可以下载JM漫画并转换为PDF或图片发送到QQ。
@@ -25,7 +32,8 @@ pip install -r requirements.txt
 ```
 
 3. 重启AstrBot
-4. 使用`/jmdomain update`命令更新可用域名
+4. 插件将自动加载，所有配置可在AstrBot管理面板的"插件配置"中进行设置
+5. 使用`/jmdomain update`命令更新可用域名
 
 ## 命令列表
 
@@ -87,33 +95,35 @@ pip install -r requirements.txt
 
 ## 配置说明
 
-插件的配置文件为`config.yaml`，包含以下配置项：
+插件使用AstrBot的官方配置系统，配置存储在`data/config/astrbot_plugin_jm_cosmos_config.json`中。您可以通过AstrBot管理面板的"插件配置"页面轻松修改所有设置，也可以使用`/jmconfig`命令进行修改。
 
-```yaml
-domain_list:  # JM漫画域名列表
-  - "18comic.vip"
-  - "jm365.xyz"
-  - "18comic.org"
-proxy: null  # HTTP代理，如 http://127.0.0.1:7890
-avs_cookie: ""  # 登录Cookie
-max_threads: 10  # 最大下载线程数
-debug_mode: false  # 调试模式
-```
+配置项包括：
+
+- **domain_list**: JM漫画域名列表
+- **proxy**: HTTP代理，如http://127.0.0.1:7890
+- **avs_cookie**: 登录Cookie
+- **max_threads**: 最大下载线程数
+- **debug_mode**: 调试模式开关
 
 ## 文件结构
 
-- `main.py` - 插件主程序
-- `config.yaml` - 配置文件
+插件核心文件包括：
+
+- `main.py` - 插件入口点和命令注册
+- `_conf_schema.json` - 配置模式定义（用于AstrBot管理面板显示）
 - `requirements.txt` - 依赖库列表
+
+数据目录位于`AstrBot/data/plugin_data/jm_cosmos/`：
 - `downloads/` - 下载的漫画图片目录
 - `pdfs/` - 生成的PDF文件目录
+- `covers/` - 漫画封面缓存目录
 - `logs/` - 日志文件目录
 
 ## 高级功能说明
 
 ### 智能目录识别
 
-插件现在支持识别多种目录命名方式：
+插件支持识别多种目录命名方式：
 - 以ID命名的标准目录
 - 以漫画标题命名的目录
 - 包含ID的混合命名目录
@@ -123,7 +133,7 @@ debug_mode: false  # 调试模式
 
 ### PDF诊断功能
 
-`/jmpdf`命令现在可以：
+`/jmpdf`命令可以：
 - 检测文件大小是否超过QQ限制
 - 统计主目录和子目录中的所有图片
 - 识别章节结构
@@ -144,18 +154,7 @@ debug_mode: false  # 调试模式
 /jmdomain update
 ```
 
-### 2. "rich media transfer failed"错误
-
-可能原因：
-- PDF文件过大
-- QQ限制
-
-解决方法：
-```
-/jmimg 漫画ID 10
-```
-
-### 3. 403错误或IP被禁止访问
+### 2. 403错误或IP被禁止访问
 
 可能原因：
 - IP地区限制
@@ -166,7 +165,7 @@ debug_mode: false  # 调试模式
 /jmconfig proxy 你的代理地址
 ```
 
-### 4. 找不到漫画图片
+### 3. 找不到漫画图片
 
 可能原因：
 - 漫画目录命名不是ID格式
@@ -184,6 +183,13 @@ debug_mode: false  # 调试模式
 4. 请遵守当地法律法规
 
 ## 更新日志
+
+### v1.0.5
+- 迁移到AstrBot官方配置系统，支持在管理面板中配置
+- 修复了API兼容性问题，使插件适配AstrBot最新版本
+- 优化了资源管理，现在正确使用AstrBot推荐的数据目录
+- 改进了错误处理和日志记录
+- 添加了线程监控功能，帮助分析性能问题
 
 ### v1.0.4
 - 增加了智能目录识别功能，支持非标准命名的漫画目录
@@ -213,7 +219,7 @@ debug_mode: false  # 调试模式
 
 ## 开发者
 
-本插件由AstrBot社区开发维护。
+[@GEMILUXVII](https://github.com/GEMILUXVII)
 
 ## 许可协议
 
@@ -223,6 +229,6 @@ debug_mode: false  # 调试模式
 
 本项目基于或参考了以下开源项目:
 
-- [Astrbot](https://github.com/AstrBot/Astrbot)
-- [JMComic-Crawler-Python](https://github.com/AstrBot/JMComic-Crawler-Python)
+- [AstrBot](https://github.com/Soulter/AstrBot)
+- [JMComic-Crawler-Python](https://github.com/hect0x7/JMComic-Crawler-Python)
 - [img2pdf](https://github.com/josch/img2pdf)

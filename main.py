@@ -1,6 +1,6 @@
 from astrbot.api.message_components import File, Image, Plain
 from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api.star import Context, Star, register
+from astrbot.api.star import Context, Star, register, StarTools
 from astrbot.api import logger
 
 import asyncio
@@ -122,20 +122,23 @@ class CosmosConfig:
 class ResourceManager:
     """资源管理器，管理文件路径和创建必要的目录"""
     
-    def __init__(self, base_dir: str):
-        self.base_dir = base_dir
+    def __init__(self, plugin_name: str):
+        # 使用StarTools获取数据目录
+        self.base_dir = StarTools.get_data_dir(plugin_name)
         # 新版目录结构
-        self.downloads_dir = os.path.join(base_dir, "downloads")
-        self.pdfs_dir = os.path.join(base_dir, "pdfs")
-        self.logs_dir = os.path.join(base_dir, "logs")
-        self.temp_dir = os.path.join(base_dir, "temp")
+        self.downloads_dir = os.path.join(self.base_dir, "downloads")
+        self.pdfs_dir = os.path.join(self.base_dir, "pdfs")
+        self.logs_dir = os.path.join(self.base_dir, "logs")
+        self.temp_dir = os.path.join(self.base_dir, "temp")
+        # 添加专门的封面目录
+        self.covers_dir = os.path.join(self.base_dir, "covers")
         
-        # 兼容旧版目录结构
-        self.old_picture_dir = os.path.join(base_dir, "picture")
-        self.old_pdf_dir = os.path.join(base_dir, "pdf")
+        # 兼容旧版目录结构 - 同样放到数据目录下
+        self.old_picture_dir = os.path.join(self.base_dir, "picture")
+        self.old_pdf_dir = os.path.join(self.base_dir, "pdf")
         
         # 创建必要的目录
-        for dir_path in [self.downloads_dir, self.pdfs_dir, self.logs_dir, self.temp_dir]:
+        for dir_path in [self.downloads_dir, self.pdfs_dir, self.logs_dir, self.temp_dir, self.covers_dir]:
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path, exist_ok=True)
     
@@ -204,20 +207,24 @@ class ResourceManager:
     
     def get_cover_path(self, comic_id: str) -> str:
         """获取封面图片路径"""
-        # 优先使用新目录
-        new_path = os.path.join(self.get_comic_folder(comic_id), "00001.jpg")
-        if os.path.exists(new_path):
-            return new_path
+        # 始终返回封面目录中对应ID的封面路径
+        cover_path = os.path.join(self.covers_dir, f"{comic_id}.jpg")
         
-        # 尝试查找其他可能的封面文件名
-        comic_folder = self.get_comic_folder(comic_id)
-        if os.path.exists(comic_folder):
-            for item in os.listdir(comic_folder):
-                if item.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and os.path.isfile(os.path.join(comic_folder, item)):
-                    return os.path.join(comic_folder, item)
+        # 如果封面已存在则返回
+        if os.path.exists(cover_path):
+            file_size = os.path.getsize(cover_path)
+            if file_size > 1000:  # 有效文件大小
+                return cover_path
+            else:
+                # 文件过小，可能是空文件或损坏文件，删除它
+                try:
+                    os.remove(cover_path)
+                    logger.warning(f"删除无效封面文件: {cover_path}, 大小: {file_size}字节")
+                except:
+                    pass
         
-        # 默认返回新目录下的预期路径
-        return os.path.join(self.get_comic_folder(comic_id), "00001.jpg")
+        # 返回封面目录中的预期路径
+        return cover_path
     
     def get_pdf_path(self, comic_id: str) -> str:
         """获取PDF文件路径"""
@@ -293,6 +300,28 @@ class ResourceManager:
         
         # 应用限制并返回结果
         return image_files[:limit] if limit else image_files
+
+    def clear_cover_cache(self):
+        """清理封面缓存目录"""
+        if os.path.exists(self.covers_dir):
+            logger.info(f"开始清理封面缓存目录: {self.covers_dir}")
+            try:
+                # 先列出所有文件
+                count = 0
+                for file in os.listdir(self.covers_dir):
+                    file_path = os.path.join(self.covers_dir, file)
+                    if os.path.isfile(file_path):
+                        try:
+                            os.remove(file_path)
+                            count += 1
+                        except Exception as e:
+                            logger.error(f"删除封面缓存文件失败: {file_path}, 错误: {str(e)}")
+                logger.info(f"封面缓存清理完成，共删除 {count} 个文件")
+                return count
+            except Exception as e:
+                logger.error(f"清理封面缓存目录失败: {str(e)}")
+                return 0
+        return 0
 
 class JMClientFactory:
     """JM客户端工厂，负责创建和管理JM客户端实例"""
@@ -395,12 +424,19 @@ class ComicDownloader:
         
         self.downloading_covers.add(album_id)
         try:
+            # 记录在对应ID下载封面
+            logger.info(f"开始下载漫画封面，ID: {album_id}")
+            
             client = self.client_factory.create_client()
             
             try:
                 album = client.get_album_detail(album_id)
                 if not album:
                     return False, "漫画不存在"
+                
+                # 记录漫画标题
+                logger.info(f"获取到漫画信息，ID: {album_id}, 标题: {album.title}")
+                
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"获取漫画详情失败: {error_msg}")
@@ -424,11 +460,35 @@ class ComicDownloader:
                 return False, "章节内容为空"
             
             image = photo[0]
+            
+            # 使用独立的封面目录保存封面
+            cover_path = os.path.join(self.resource_manager.covers_dir, f"{album_id}.jpg")
+            
+            # 删除可能存在的旧封面，强制更新
+            if os.path.exists(cover_path):
+                try:
+                    os.remove(cover_path)
+                    logger.info(f"已删除旧封面: {cover_path}")
+                except Exception as e:
+                    logger.error(f"删除旧封面失败: {str(e)}")
+            
+            # 创建漫画文件夹 - 仍然需要创建这个目录，因为下载漫画时会用到
             comic_folder = self.resource_manager.get_comic_folder(album_id)
             os.makedirs(comic_folder, exist_ok=True)
             
-            cover_path = self.resource_manager.get_cover_path(album_id)
+            # 下载封面到封面专用目录
+            logger.info(f"下载封面到: {cover_path}")
             client.download_by_image_detail(image, cover_path)
+            
+            # 验证封面是否已下载
+            if os.path.exists(cover_path):
+                file_size = os.path.getsize(cover_path)
+                logger.info(f"封面下载成功: {cover_path}, 大小: {file_size} 字节")
+                if file_size < 1000:  # 如果文件太小，可能下载失败
+                    logger.warning(f"封面文件大小异常，可能下载失败: {file_size} 字节")
+            else:
+                logger.error(f"封面下载后未找到文件: {cover_path}")
+            
             return True, cover_path
         except Exception as e:
             error_msg = str(e)
@@ -448,8 +508,40 @@ class ComicDownloader:
         
         self.downloading_comics.add(album_id)
         try:
+            # 在debug模式下添加线程监控
+            if self.config.debug_mode:
+                import threading
+                initial_threads = threading.active_count()
+                logger.info(f"下载开始前活跃线程数: {initial_threads}")
+            
             # 使用异步线程执行下载
-            return await asyncio.to_thread(self._download_with_retry, album_id)
+            result = await asyncio.to_thread(self._download_with_retry, album_id)
+            
+            # 在debug模式下记录最终线程数
+            if self.config.debug_mode:
+                import threading
+                final_threads = threading.active_count()
+                thread_diff = final_threads - initial_threads
+                logger.info(f"下载结束时活跃线程数: {final_threads}")
+                logger.info(f"下载过程中创建的线程数: {thread_diff}")
+                
+                # 列出所有线程名称
+                current_threads = threading.enumerate()
+                thread_names = [t.name for t in current_threads]
+                logger.info(f"当前线程列表: {thread_names}")
+                
+                # 记录配置的最大线程数
+                logger.info(f"配置的最大线程数: {self.config.max_threads}")
+                
+                # 保存调试信息到文件
+                self._save_debug_info(f"thread_info_{album_id}", 
+                    f"下载开始前线程数: {initial_threads}\n"
+                    f"下载结束时线程数: {final_threads}\n"
+                    f"下载过程中创建的线程数: {thread_diff}\n"
+                    f"配置的最大线程数: {self.config.max_threads}\n"
+                    f"当前线程列表: {thread_names}")
+            
+            return result
         except Exception as e:
             logger.error(f"下载调度失败: {str(e)}")
             return False, f"下载调度失败: {str(e)}"
@@ -507,19 +599,182 @@ class ComicDownloader:
 class JMCosmosPlugin(Star):
     """禁漫宇宙插件主类"""
     
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, config=None):
         super().__init__(context)
+        self.plugin_name = "jm_cosmos"
         self.base_path = os.path.realpath(os.path.dirname(__file__))
         
-        # 初始化组件
-        self.resource_manager = ResourceManager(self.base_path)
-        config_path = os.path.join(self.base_path, "config.yaml")
-        self.config = CosmosConfig.load_from_file(config_path)
+        # 详细日志记录
+        logger.info(f"禁漫宇宙插件初始化，配置参数: {config}")
+        
+        # 初始化组件 - 使用插件名初始化ResourceManager而不是目录路径
+        self.resource_manager = ResourceManager(self.plugin_name)
+        
+        # 清理封面缓存
+        logger.info("初始化时清理封面缓存")
+        self.resource_manager.clear_cover_cache()
+        
+        # AstrBot配置文件路径
+        self.astrbot_config_path = os.path.join(self.context.get_config().get("data_dir", "data"), "config", f"astrbot_plugin_{self.plugin_name}_config.json")
+        
+        # 如果传入了AstrBot配置，使用它
+        if config is not None:
+            logger.info(f"使用AstrBot配置系统: {config}")
+            
+            # 获取domain_list，确保是列表
+            domain_list = config.get("domain_list", ["18comic.vip", "jm365.xyz", "18comic.org"])
+            if not isinstance(domain_list, list):
+                logger.warning(f"domain_list不是列表，尝试转换: {domain_list}")
+                if isinstance(domain_list, str):
+                    domain_list = domain_list.split(',')
+                else:
+                    domain_list = ["18comic.vip", "jm365.xyz", "18comic.org"]
+            
+            # 处理代理设置
+            proxy_value = config.get("proxy", "")
+            proxy = None
+            if proxy_value and isinstance(proxy_value, str) and proxy_value.strip():
+                proxy = proxy_value.strip()
+                logger.info(f"使用代理: {proxy}")
+                
+            # 处理max_threads，确保是整数
+            try:
+                max_threads = int(config.get("max_threads", 10))
+            except (ValueError, TypeError):
+                logger.warning(f"max_threads转换为整数失败: {config.get('max_threads')}")
+                max_threads = 10
+                
+            # 处理debug_mode，确保是布尔值
+            debug_mode = bool(config.get("debug_mode", False))
+            
+            # 转换AstrBot配置为CosmosConfig实例
+            self.config = CosmosConfig(
+                domain_list=domain_list,
+                proxy=proxy,
+                avs_cookie=str(config.get("avs_cookie", "")),
+                max_threads=max_threads,
+                debug_mode=debug_mode
+            )
+            logger.info(f"已加载AstrBot配置")
+        else:
+            logger.info("没有收到AstrBot配置，尝试从配置文件加载")
+            
+            # 检查是否存在旧的配置文件
+            old_config_path = os.path.join(self.context.get_config().get("data_dir", "data"), "config", f"{self.plugin_name}_config.json")
+            
+            # 如果旧配置文件存在且新配置文件不存在，则进行迁移
+            if os.path.exists(old_config_path) and not os.path.exists(self.astrbot_config_path):
+                try:
+                    logger.info(f"发现旧配置文件: {old_config_path}，尝试迁移")
+                    # 确保目录存在
+                    os.makedirs(os.path.dirname(self.astrbot_config_path), exist_ok=True)
+                    # 复制文件内容
+                    with open(old_config_path, 'r', encoding='utf-8') as src:
+                        with open(self.astrbot_config_path, 'w', encoding='utf-8') as dst:
+                            dst.write(src.read())
+                    logger.info(f"已迁移旧配置文件到: {self.astrbot_config_path}")
+                except Exception as e:
+                    logger.error(f"迁移旧配置文件失败: {str(e)}")
+            
+            # 尝试从AstrBot配置文件加载
+            if os.path.exists(self.astrbot_config_path):
+                try:
+                    logger.info(f"尝试从AstrBot配置文件加载: {self.astrbot_config_path}")
+                    with open(self.astrbot_config_path, 'r', encoding='utf-8') as f:
+                        astrbot_config = json.load(f)
+                    
+                    # 处理domain_list
+                    domain_list = astrbot_config.get("domain_list", ["18comic.vip", "jm365.xyz", "18comic.org"])
+                    if not isinstance(domain_list, list):
+                        if isinstance(domain_list, str):
+                            domain_list = domain_list.split(',')
+                        else:
+                            domain_list = ["18comic.vip", "jm365.xyz", "18comic.org"]
+                    
+                    # 处理代理
+                    proxy_value = astrbot_config.get("proxy", "")
+                    proxy = None
+                    if proxy_value and isinstance(proxy_value, str) and proxy_value.strip():
+                        proxy = proxy_value.strip()
+                    
+                    # 更新配置
+                    self.config = CosmosConfig(
+                        domain_list=domain_list,
+                        proxy=proxy,
+                        avs_cookie=str(astrbot_config.get("avs_cookie", "")),
+                        max_threads=int(astrbot_config.get("max_threads", 10)),
+                        debug_mode=bool(astrbot_config.get("debug_mode", False))
+                    )
+                    logger.info(f"已从AstrBot配置文件加载配置")
+                except Exception as e:
+                    logger.error(f"从AstrBot配置文件加载失败: {str(e)}")
+                    # 使用默认配置
+                    self.config = CosmosConfig(
+                        domain_list=["18comic.vip", "jm365.xyz", "18comic.org"],
+                        proxy=None,
+                        avs_cookie="",
+                        max_threads=10,
+                        debug_mode=False
+                    )
+                    logger.info("使用默认配置")
+            else:
+                # 尝试从旧配置文件加载
+                if os.path.exists(old_config_path):
+                    try:
+                        logger.info(f"尝试从旧配置文件加载: {old_config_path}")
+                        with open(old_config_path, 'r', encoding='utf-8') as f:
+                            old_config = json.load(f)
+                        
+                        # 处理domain_list
+                        domain_list = old_config.get("domain_list", ["18comic.vip", "jm365.xyz", "18comic.org"])
+                        if not isinstance(domain_list, list):
+                            if isinstance(domain_list, str):
+                                domain_list = domain_list.split(',')
+                            else:
+                                domain_list = ["18comic.vip", "jm365.xyz", "18comic.org"]
+                        
+                        # 处理代理
+                        proxy_value = old_config.get("proxy", "")
+                        proxy = None
+                        if proxy_value and isinstance(proxy_value, str) and proxy_value.strip():
+                            proxy = proxy_value.strip()
+                        
+                        # 更新配置
+                        self.config = CosmosConfig(
+                            domain_list=domain_list,
+                            proxy=proxy,
+                            avs_cookie=str(old_config.get("avs_cookie", "")),
+                            max_threads=int(old_config.get("max_threads", 10)),
+                            debug_mode=bool(old_config.get("debug_mode", False))
+                        )
+                        
+                        # 在下次使用_update_astrbot_config时会自动迁移
+                        logger.info(f"已从旧配置文件加载配置，将在下次更新时迁移")
+                    except Exception as e:
+                        logger.error(f"从旧配置文件加载失败: {str(e)}")
+                        # 使用默认配置
+                        self.config = CosmosConfig(
+                            domain_list=["18comic.vip", "jm365.xyz", "18comic.org"],
+                            proxy=None,
+                            avs_cookie="",
+                            max_threads=10,
+                            debug_mode=False
+                        )
+                        logger.info("使用默认配置")
+                else:
+                    # 使用默认配置
+                    self.config = CosmosConfig(
+                        domain_list=["18comic.vip", "jm365.xyz", "18comic.org"],
+                        proxy=None,
+                        avs_cookie="",
+                        max_threads=10,
+                        debug_mode=False
+                    )
+                    logger.info("使用默认配置")
+        
+        # 初始化客户端工厂和下载器
         self.client_factory = JMClientFactory(self.config, self.resource_manager)
         self.downloader = ComicDownloader(self.client_factory, self.resource_manager, self.config)
-        
-        # 保存配置路径
-        self.config_path = config_path
     
     def _save_debug_info(self, prefix: str, content: str) -> None:
         """保存调试信息到文件"""
@@ -558,7 +813,11 @@ class JMCosmosPlugin(Star):
             return
         
         comic_id = args[1]
-        yield event.plain_result(f"开始下载漫画ID: {comic_id}，请稍候...")
+        
+        if self.config.debug_mode:
+            yield event.plain_result(f"开始下载漫画ID: {comic_id}，请稍候...\n当前配置的最大线程数: {self.config.max_threads}")
+        else:
+            yield event.plain_result(f"开始下载漫画ID: {comic_id}，请稍候...")
         
         pdf_path = self.resource_manager.get_pdf_path(comic_id)
         
@@ -590,7 +849,30 @@ class JMCosmosPlugin(Star):
             return
         
         # 下载漫画
+        import threading
+        initial_thread_count = threading.active_count() if self.config.debug_mode else 0
+        
         success, msg = await self.downloader.download_comic(comic_id)
+        
+        if self.config.debug_mode:
+            # 显示线程使用情况
+            final_thread_count = threading.active_count()
+            thread_diff = final_thread_count - initial_thread_count
+            thread_info = f"线程信息:\n初始线程数: {initial_thread_count}\n最终线程数: {final_thread_count}\n创建的线程数: {thread_diff}\n配置的最大线程数: {self.config.max_threads}"
+            yield event.plain_result(thread_info)
+            
+            # 读取线程调试文件内容
+            thread_log_path = os.path.join(self.resource_manager.logs_dir, f"thread_info_{comic_id}*.txt")
+            thread_log_files = glob.glob(thread_log_path)
+            if thread_log_files:
+                latest_log = max(thread_log_files, key=os.path.getmtime)
+                try:
+                    with open(latest_log, 'r', encoding='utf-8') as f:
+                        log_content = f.read()
+                    yield event.plain_result(f"详细线程日志:\n{log_content}")
+                except Exception as e:
+                    logger.error(f"读取线程日志失败: {str(e)}")
+        
         if not success:
             yield event.plain_result(f"下载漫画失败: {msg}")
             return
@@ -679,86 +961,71 @@ class JMCosmosPlugin(Star):
         用法: /jmrecommend
         '''
         client = self.client_factory.create_client()
+        yield event.plain_result("正在获取推荐漫画，请稍候...")
+        
         try:
-            # 从月榜中随机选择一部漫画
+            # 尝试获取月榜，如果失败则使用备选方案
+            ranking = None
             try:
-                # 尝试获取月榜，如果失败则提供备选方案
-                try:
-                    ranking = client.month_ranking(1)
-                except Exception as first_e:
-                    error_msg = str(first_e)
-                    logger.error(f"获取月榜失败，尝试使用备选方法: {error_msg}")
-                    
-                    if "403" in error_msg or "禁止访问" in error_msg or "爬虫被识别" in error_msg:
-                        # 尝试使用不同的域名
-                        for domain in self.config.domain_list[1:]:
-                            try:
-                                temp_client = self.client_factory.create_client_with_domain(domain)
-                                ranking = temp_client.month_ranking(1)
-                                if ranking:
-                                    break
-                            except Exception as domain_e:
-                                logger.error(f"尝试域名 {domain} 失败: {str(domain_e)}")
-                        
-                        # 如果所有域名都失败，则使用随机ID
-                        if not ranking:
-                            # 使用一些热门漫画ID作为备选
-                            popular_ids = ["376448", "358333", "375872", "377315", "376870", 
-                                           "375784", "374463", "374160", "373768", "373548"]
-                            random_id = random.choice(popular_ids)
-                            yield event.plain_result(f"获取排行榜失败，将随机推荐一部热门漫画(ID: {random_id})...")
-                            album = client.get_album_detail(random_id)
-                            album_id = random_id
-                            
-                            # 跳到获取封面和发送消息的逻辑
-                            cover_path = self.resource_manager.get_cover_path(album_id)
-                            if not os.path.exists(cover_path):
-                                success, result = await self.downloader.download_cover(album_id)
-                                if not success:
-                                    yield event.plain_result(f"{album.title}\n封面下载失败: {result}")
-                                    return
-                                cover_path = result
-                            
-                            yield event.chain_result(await self._build_album_message(client, album, album_id, cover_path))
-                            return
-                    else:
-                        raise first_e
+                ranking = client.month_ranking(1)
             except Exception as e:
                 error_msg = str(e)
-                if "文本没有匹配上字段" in error_msg:
-                    yield event.plain_result("获取排行榜失败: 网站结构可能已更改，请更新jmcomic库或使用/jmdomain更新域名")
-                    return
-                else:
-                    yield event.plain_result(f"获取排行榜失败: {error_msg}\n请尝试使用/jmdomain update更新域名，或使用/jmconfig设置代理")
-                    return
+                logger.error(f"获取月榜失败: {error_msg}")
                 
-            album_id, _ = random.choice(list(ranking.iter_id_title()))
+                # 尝试使用不同的域名
+                for domain in self.config.domain_list[1:]:
+                    try:
+                        logger.info(f"尝试使用域名 {domain} 获取排行榜")
+                        temp_client = self.client_factory.create_client_with_domain(domain)
+                        ranking = temp_client.month_ranking(1)
+                        if ranking:
+                            logger.info(f"域名 {domain} 获取排行榜成功")
+                            break
+                    except Exception as domain_e:
+                        logger.error(f"尝试域名 {domain} 失败: {str(domain_e)}")
             
+            # 如果无法获取排行榜，使用内置的热门ID
+            if not ranking:
+                popular_ids = ["376448", "358333", "375872", "377315", "376870", 
+                              "375784", "374463", "374160", "373768", "373548"]
+                album_id = random.choice(popular_ids)
+                yield event.plain_result(f"获取排行榜失败，随机推荐一部热门漫画(ID: {album_id})...")
+            else:
+                # 从排行榜中随机选择
+                ranking_list = list(ranking.iter_id_title())
+                album_id, title = random.choice(ranking_list)
+                yield event.plain_result(f"从排行榜中随机推荐: [{album_id}] {title}")
+            
+            # 获取漫画详情
             try:
                 album = client.get_album_detail(album_id)
+                logger.info(f"获取到漫画详情: {album_id}, 标题: {album.title}")
             except Exception as e:
                 error_msg = str(e)
-                if "文本没有匹配上字段" in error_msg:
-                    yield event.plain_result(f"获取漫画详情失败: 网站结构可能已更改，但推荐的ID是: {album_id}")
-                    return
-                else:
-                    yield event.plain_result(f"获取漫画详情失败: {error_msg}")
-                    return
+                logger.error(f"获取漫画详情失败: {error_msg}")
+                yield event.plain_result(f"获取漫画详情失败: {error_msg}\n请尝试使用 #jmconfig clearcache 清理封面缓存后再试")
+                return
             
-            cover_path = self.resource_manager.get_cover_path(album_id)
-            if not os.path.exists(cover_path):
-                success, result = await self.downloader.download_cover(album_id)
-                if not success:
-                    yield event.plain_result(f"{album.title}\n封面下载失败: {result}")
-                    return
+            # 强制重新下载封面
+            yield event.plain_result(f"正在下载封面，ID: {album_id}...")
+            success, result = await self.downloader.download_cover(album_id)
+            
+            if success:
                 cover_path = result
+                logger.info(f"封面下载成功: {cover_path}")
+            else:
+                logger.error(f"封面下载失败: {result}")
+                yield event.plain_result(f"封面下载失败: {result}\n尝试继续显示漫画信息")
+                cover_path = self.resource_manager.get_cover_path(album_id)
             
+            # 显示漫画信息
             yield event.chain_result(await self._build_album_message(client, album, album_id, cover_path))
+            
         except Exception as e:
             error_msg = str(e)
             logger.error(f"推荐漫画失败: {error_msg}")
             self._save_debug_info("recommend_error", traceback.format_exc())
-            yield event.plain_result(f"推荐漫画失败: {error_msg}")
+            yield event.plain_result(f"推荐漫画失败: {error_msg}\n请尝试使用 #jmconfig clearcache 清理封面缓存后再试")
 
     @filter.command("jmsearch")
     async def search_comic(self, event: AstrMessageEvent):
@@ -784,48 +1051,73 @@ class JMCosmosPlugin(Star):
         client = self.client_factory.create_client()
         search_query = ' '.join(f'+{k}' for k in keywords)
         
+        yield event.plain_result(f"正在搜索: {' '.join(keywords)}，请求序号: {order}...")
+        
         results = []
         try:
-            for page in range(1, 4):
+            # 查询多页直到找到足够的结果或者达到最大页数
+            max_pages = 5  # 最多查询5页
+            for page in range(1, max_pages + 1):
                 try:
+                    logger.info(f"搜索第{page}页，当前结果数: {len(results)}，目标序号: {order}")
                     search_result = client.search_site(search_query, page)
-                    results.extend(list(search_result.iter_id_title()))
+                    page_results = list(search_result.iter_id_title())
+                    
+                    if self.config.debug_mode:
+                        result_info = '\n'.join([f"{i+1}. [{id}] {title}" for i, (id, title) in enumerate(page_results)])
+                        logger.info(f"第{page}页搜索结果:\n{result_info}")
+                    
+                    results.extend(page_results)
                     if len(results) >= order:
+                        logger.info(f"已找到足够的结果: {len(results)} >= {order}")
                         break
                 except Exception as e:
                     error_msg = str(e)
+                    logger.error(f"搜索第{page}页失败: {error_msg}")
                     if "文本没有匹配上字段" in error_msg:
                         yield event.plain_result(f"搜索失败: 网站结构可能已更改，请更新jmcomic库")
                         return
-                    else:
+                    elif page == 1:  # 如果第一页就失败，则返回错误
                         yield event.plain_result(f"搜索失败: {error_msg}")
                         return
+                    else:  # 如果不是第一页失败，可以继续用之前的结果
+                        break
         
+            if len(results) == 0:
+                yield event.plain_result(f"未找到任何结果")
+                return
+                
             if len(results) < order:
-                yield event.plain_result(f"仅找到{len(results)}条结果")
+                # 找到了一些结果，但不够满足序号要求
+                result_list = '\n'.join([f"{i+1}. [{id}] {title}" for i, (id, title) in enumerate(results)])
+                yield event.plain_result(f"仅找到{len(results)}条结果，无法显示第{order}条:\n{result_list}")
                 return
             
-            album_id, _ = results[order-1]
+            # 获取指定序号的漫画ID和标题
+            album_id, title = results[order-1]
+            logger.info(f"请求序号 {order}，展示漫画: [{album_id}] {title}")
             
             try:
                 album = client.get_album_detail(album_id)
             except Exception as e:
                 error_msg = str(e)
+                logger.error(f"获取漫画详情失败: {error_msg}")
                 if "文本没有匹配上字段" in error_msg:
-                    yield event.plain_result(f"获取漫画详情失败: 网站结构可能已更改，但搜索结果ID是: {album_id}")
+                    yield event.plain_result(f"获取漫画详情失败: 网站结构可能已更改，但搜索结果ID是: {album_id}，标题: {title}")
                     return
                 else:
                     yield event.plain_result(f"获取漫画详情失败: {error_msg}")
                     return
             
-            cover_path = self.resource_manager.get_cover_path(album_id)
-            if not os.path.exists(cover_path):
-                success, result = await self.downloader.download_cover(album_id)
-                if not success:
-                    yield event.plain_result(f"封面下载失败: {result}\n但搜索结果ID是: {album_id}")
-                    return
-                cover_path = result
+            # 始终重新下载封面以确保正确
+            yield event.plain_result(f"搜索结果第{order}条: [{album_id}] {album.title}\n正在下载封面...")
+            success, cover_path = await self.downloader.download_cover(album_id)
+            if not success:
+                yield event.plain_result(f"封面下载失败: {cover_path}\n但搜索结果ID是: {album_id}，标题: {album.title}")
+                # 尝试使用预期的封面路径继续
+                cover_path = self.resource_manager.get_cover_path(album_id)
             
+            # 显示漫画信息
             yield event.chain_result(await self._build_album_message(client, album, album_id, cover_path))
         except Exception as e:
             error_msg = str(e)
@@ -953,18 +1245,96 @@ class JMCosmosPlugin(Star):
         /jmconfig threads [数量] - 设置最大下载线程数
         /jmconfig domain [域名] - 添加JM漫画域名
         /jmconfig debug [on/off] - 开启/关闭调试模式
+        /jmconfig info - 显示当前配置信息
+        /jmconfig reload - 重新加载配置文件
+        /jmconfig clearcache - 清理封面缓存
         '''
         args = event.message_str.strip().split()
         if len(args) < 2:
-            yield event.plain_result("用法:\n/jmconfig proxy [代理URL] - 设置代理URL\n/jmconfig noproxy - 清除代理设置\n/jmconfig cookie [AVS Cookie] - 设置登录Cookie\n/jmconfig threads [数量] - 设置最大下载线程数\n/jmconfig domain [域名] - 添加JM漫画域名\n/jmconfig debug [on/off] - 开启/关闭调试模式")
+            yield event.plain_result("用法:\n/jmconfig proxy [代理URL] - 设置代理URL\n/jmconfig noproxy - 清除代理设置\n/jmconfig cookie [AVS Cookie] - 设置登录Cookie\n/jmconfig threads [数量] - 设置最大下载线程数\n/jmconfig domain [域名] - 添加JM漫画域名\n/jmconfig debug [on/off] - 开启/关闭调试模式\n/jmconfig info - 显示当前配置信息\n/jmconfig reload - 重新加载配置文件\n/jmconfig clearcache - 清理封面缓存")
             return
         
         action = args[1].lower()
         
-        if action == "proxy" and len(args) >= 3:
+        if action == "clearcache":
+            # 清理封面缓存
+            count = self.resource_manager.clear_cover_cache()
+            yield event.plain_result(f"封面缓存清理完成，共删除 {count} 个文件")
+            return
+            
+        if action == "info":
+            # 显示当前配置信息
+            domain_list_str = ", ".join(self.config.domain_list)
+            proxy_str = self.config.proxy if self.config.proxy else "未设置"
+            cookie_str = "已设置" if self.config.avs_cookie else "未设置"
+            threads_str = str(self.config.max_threads)
+            debug_str = "开启" if self.config.debug_mode else "关闭"
+            
+            info_message = (
+                f"当前配置信息:\n"
+                f"域名列表: {domain_list_str}\n"
+                f"代理: {proxy_str}\n"
+                f"Cookie: {cookie_str}\n"
+                f"最大线程数: {threads_str}\n"
+                f"调试模式: {debug_str}"
+            )
+            
+            yield event.plain_result(info_message)
+            return
+        
+        elif action == "reload":
+            # 重新加载配置
+            try:
+                # 尝试从AstrBot配置加载
+                if os.path.exists(self.astrbot_config_path):
+                    try:
+                        with open(self.astrbot_config_path, 'r', encoding='utf-8') as f:
+                            astrbot_config = json.load(f)
+                        
+                        # 处理domain_list
+                        domain_list = astrbot_config.get("domain_list", ["18comic.vip", "jm365.xyz", "18comic.org"])
+                        if not isinstance(domain_list, list):
+                            if isinstance(domain_list, str):
+                                domain_list = domain_list.split(',')
+                            else:
+                                domain_list = ["18comic.vip", "jm365.xyz", "18comic.org"]
+                        
+                        # 处理代理
+                        proxy_value = astrbot_config.get("proxy", "")
+                        proxy = None
+                        if proxy_value and isinstance(proxy_value, str) and proxy_value.strip():
+                            proxy = proxy_value.strip()
+                        
+                        # 更新配置
+                        self.config = CosmosConfig(
+                            domain_list=domain_list,
+                            proxy=proxy,
+                            avs_cookie=str(astrbot_config.get("avs_cookie", "")),
+                            max_threads=int(astrbot_config.get("max_threads", 10)),
+                            debug_mode=bool(astrbot_config.get("debug_mode", False))
+                        )
+                        
+                        # 更新客户端工厂
+                        self.client_factory.update_option()
+                        
+                        yield event.plain_result(f"已重新加载配置")
+                        return
+                    except Exception as e:
+                        logger.error(f"从AstrBot配置加载失败: {str(e)}")
+                        yield event.plain_result(f"重新加载配置失败: {str(e)}")
+                        return
+                
+                yield event.plain_result("未找到配置文件，请先在管理面板中设置配置")
+            except Exception as e:
+                logger.error(f"重新加载配置失败: {str(e)}", exc_info=True)
+                yield event.plain_result(f"重新加载配置失败: {str(e)}")
+            return
+        
+        elif action == "proxy" and len(args) >= 3:
             proxy_url = args[2]
             self.config.proxy = proxy_url
-            if self.config.save_to_file(self.config_path):
+            # 更新AstrBot配置
+            if self._update_astrbot_config("proxy", proxy_url):
                 # 更新客户端工厂选项
                 self.client_factory.update_option()
                 yield event.plain_result(f"已设置代理URL为: {proxy_url}")
@@ -972,7 +1342,7 @@ class JMCosmosPlugin(Star):
                 yield event.plain_result("保存配置失败，请检查权限")
         elif action == "noproxy":
             self.config.proxy = None
-            if self.config.save_to_file(self.config_path):
+            if self._update_astrbot_config("proxy", ""):
                 # 更新客户端工厂选项
                 self.client_factory.update_option()
                 yield event.plain_result("已清除代理设置")
@@ -981,7 +1351,7 @@ class JMCosmosPlugin(Star):
         elif action == "cookie" and len(args) >= 3:
             cookie = args[2]
             self.config.avs_cookie = cookie
-            if self.config.save_to_file(self.config_path):
+            if self._update_astrbot_config("avs_cookie", cookie):
                 # 更新客户端工厂选项
                 self.client_factory.update_option()
                 yield event.plain_result("已设置登录Cookie")
@@ -994,7 +1364,7 @@ class JMCosmosPlugin(Star):
                     yield event.plain_result("线程数必须≥1")
                     return
                 self.config.max_threads = threads
-                if self.config.save_to_file(self.config_path):
+                if self._update_astrbot_config("max_threads", threads):
                     # 更新客户端工厂选项
                     self.client_factory.update_option()
                     yield event.plain_result(f"已设置最大下载线程数为: {threads}")
@@ -1004,9 +1374,12 @@ class JMCosmosPlugin(Star):
                 yield event.plain_result("线程数必须是整数")
         elif action == "domain" and len(args) >= 3:
             domain = args[2]
+            
+            # 移除域名格式验证
+            
             if domain not in self.config.domain_list:
                 self.config.domain_list.append(domain)
-                if self.config.save_to_file(self.config_path):
+                if self._update_astrbot_config("domain_list", self.config.domain_list):
                     # 更新客户端工厂选项
                     self.client_factory.update_option()
                     yield event.plain_result(f"已添加域名: {domain}")
@@ -1018,13 +1391,19 @@ class JMCosmosPlugin(Star):
             debug_mode = args[2].lower()
             if debug_mode == "on":
                 self.config.debug_mode = True
-                if self.config.save_to_file(self.config_path):
+                # 更新AstrBot配置
+                if self._update_astrbot_config("debug_mode", True):
+                    # 更新客户端工厂选项
+                    self.client_factory.update_option()
                     yield event.plain_result("已开启调试模式")
                 else:
                     yield event.plain_result("保存配置失败，请检查权限")
             elif debug_mode == "off":
                 self.config.debug_mode = False
-                if self.config.save_to_file(self.config_path):
+                # 更新AstrBot配置
+                if self._update_astrbot_config("debug_mode", False):
+                    # 更新客户端工厂选项
+                    self.client_factory.update_option()
                     yield event.plain_result("已关闭调试模式")
                 else:
                     yield event.plain_result("保存配置失败，请检查权限")
@@ -1032,6 +1411,59 @@ class JMCosmosPlugin(Star):
                 yield event.plain_result("参数错误，请使用 on 或 off")
         else:
             yield event.plain_result("不支持的配置项或参数不足")
+    
+    def _update_astrbot_config(self, key: str, value) -> bool:
+        """更新AstrBot配置文件"""
+        try:
+            config_dir = os.path.join(self.context.get_config().get("data_dir", "data"), "config")
+            config_path = os.path.join(config_dir, f"astrbot_plugin_{self.plugin_name}_config.json")
+            
+            # 确保目录存在
+            os.makedirs(config_dir, exist_ok=True)
+            
+            # 读取现有配置或创建新配置
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8-sig') as f:
+                    config = json.load(f)
+            else:
+                config = {}
+            
+            # 更新配置
+            config[key] = value
+            
+            # 保存配置
+            with open(config_path, 'w', encoding='utf-8-sig') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            
+            logger.info(f"已更新AstrBot配置: {key}={value}")
+            
+            # 如果存在旧的错误配置文件，尝试迁移内容并删除
+            old_config_path = os.path.join(config_dir, f"{self.plugin_name}_config.json")
+            if os.path.exists(old_config_path) and old_config_path != config_path:
+                try:
+                    # 读取旧配置
+                    with open(old_config_path, 'r', encoding='utf-8-sig') as f:
+                        old_config = json.load(f)
+                    
+                    # 合并到新配置文件中
+                    for k, v in old_config.items():
+                        if k not in config:
+                            config[k] = v
+                    
+                    # 保存合并后的配置
+                    with open(config_path, 'w', encoding='utf-8-sig') as f:
+                        json.dump(config, f, ensure_ascii=False, indent=2)
+                    
+                    # 删除旧配置文件
+                    os.remove(old_config_path)
+                    logger.info(f"已迁移旧配置文件 {old_config_path} 到 {config_path}")
+                except Exception as e:
+                    logger.error(f"迁移旧配置文件失败: {str(e)}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"更新AstrBot配置失败: {str(e)}", exc_info=True)
+            return False
 
     @filter.command("jmimg")
     async def download_comic_as_images(self, event: AstrMessageEvent):
@@ -1277,18 +1709,30 @@ class JMCosmosPlugin(Star):
                         failed_domains.append(f"{domain}: {status}")
                 
                 result = f"测试完成，共{len(domains)}个域名，其中{len(ok_domains)}个可用\n\n"
-                result += "✅ 可用域名:\n"
-                for i, domain in enumerate(ok_domains[:10]):  # 只显示前10个可用域名
-                    result += f"{i+1}. {domain}\n"
-                
-                if len(ok_domains) > 10:
-                    result += f"...等共{len(ok_domains)}个可用域名\n"
+                if len(ok_domains) > 0:
+                    result += "✅ 可用域名:\n"
+                    for i, domain in enumerate(ok_domains[:10]):  # 只显示前10个可用域名
+                        result += f"{i+1}. {domain}\n"
+                    
+                    if len(ok_domains) > 10:
+                        result += f"...等共{len(ok_domains)}个可用域名\n"
+                else:
+                    result += "❌ 没有找到可用域名\n"
+                    # 添加可能的原因和解决方案
+                    if not self.config.proxy:
+                        result += "\n可能原因:\n1. 所有域名都被屏蔽\n2. 网络问题\n\n建议配置代理后再试:\n#jmconfig proxy http://127.0.0.1:7890\n(将示例的代理地址换成你自己的)"
                 
                 yield event.plain_result(result)
             
             elif option == "update":
                 if not available_domains:
-                    yield event.plain_result("未找到可用域名，保持当前配置不变")
+                    result = "未找到可用域名，保持当前配置不变"
+                    
+                    # 添加可能的原因和解决方案
+                    if not self.config.proxy:
+                        result += "\n\n可能原因:\n1. 所有域名都被屏蔽\n2. 网络问题\n\n建议配置代理后再试:\n#jmconfig proxy http://127.0.0.1:7890\n(将示例的代理地址换成你自己的)"
+                    
+                    yield event.plain_result(result)
                     return
                 
                 # 更新配置
@@ -1306,7 +1750,7 @@ class JMCosmosPlugin(Star):
                 
                 # 更新配置
                 self.config.domain_list = list(available_domains[:5])  # 取前5个可用域名
-                if self.config.save_to_file(self.config_path):
+                if self._update_astrbot_config("domain_list", self.config.domain_list):
                     # 更新客户端工厂选项
                     self.client_factory.update_option()
                     
@@ -1326,7 +1770,13 @@ class JMCosmosPlugin(Star):
             error_msg = str(e)
             logger.error(f"测试域名失败: {error_msg}")
             self._save_debug_info("domain_test_error", traceback.format_exc())
-            yield event.plain_result(f"测试域名失败: {error_msg}")
+            result = f"测试域名失败: {error_msg}"
+            
+            # 添加可能的原因和解决方案
+            if "timeout" in error_msg.lower() or "connect" in error_msg.lower():
+                result += "\n\n可能是网络问题，建议配置代理后再试:\n#jmconfig proxy http://127.0.0.1:7890\n(将示例的代理地址换成你自己的)"
+            
+            yield event.plain_result(result)
     
     def _get_all_domains(self):
         """获取所有禁漫域名"""
@@ -1370,19 +1820,51 @@ class JMCosmosPlugin(Star):
         jmcomic.disable_jm_log()
 
         def test_domain(domain):
-            client = jmcomic.JmOption.default().new_jm_client(
-                impl='html', 
-                domain_list=[domain], 
-                **meta_data
-            )
-            status = 'ok'
-
             try:
-                client.get_album_detail('123456')
+                # 直接使用curl_cffi库来测试域名
+                from curl_cffi import requests as postman
+                
+                domain_url = f"https://{domain}"
+                logger.info(f"正在测试域名: {domain}")
+                
+                # 使用postman访问主页
+                response = postman.get(domain_url, **meta_data)
+                html = response.text
+                
+                # 检查返回的HTML是否包含一些禁漫网站特有的关键词
+                jm_keywords = ["禁漫", "JM", "18comic", "免費", "同人", "成人", "H漫"]
+                
+                valid_domain = False
+                for keyword in jm_keywords:
+                    if keyword in html:
+                        valid_domain = True
+                        break
+                
+                if not valid_domain:
+                    # 也尝试访问另一个页面
+                    try:
+                        search_url = f"https://{domain}/search/albums"
+                        search_response = postman.get(search_url, **meta_data)
+                        search_html = search_response.text
+                        for keyword in jm_keywords:
+                            if keyword in search_html:
+                                valid_domain = True
+                                break
+                    except Exception as se:
+                        logger.warning(f"尝试访问搜索页面失败: {str(se)}")
+                
+                if not valid_domain:
+                    status = "页面内容不正确"
+                    logger.warning(f"域名 {domain} 可访问但内容不符合预期")
+                else:
+                    status = "ok"
+                    logger.info(f"域名 {domain} 测试通过")
+                
             except Exception as e:
-                status = str(e.args)
-                pass
-
+                err_msg = str(e)
+                status = f"访问失败: {err_msg[:50]}"
+                logger.error(f"测试域名 {domain} 失败: {err_msg}")
+                
             domain_status_dict[domain] = status
 
         jmcomic.multi_thread_launcher(
