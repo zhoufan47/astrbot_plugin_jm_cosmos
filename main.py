@@ -53,7 +53,7 @@ class DownloadStatus(Enum):
 # 使用数据类来管理配置
 @dataclass
 class CosmosConfig:
-    """禁漫宇宙插件配置类"""
+    """Cosmos插件配置类"""
     domain_list: List[str]
     proxy: Optional[str]
     avs_cookie: str
@@ -595,9 +595,9 @@ class ComicDownloader:
             logger.error(f"获取总页数失败: {str(e)}")
             return 0
 
-@register("jm_cosmos", "禁漫宇宙", "全能型JM漫画下载与管理工具", "1.0.4", "https://github.com/yourusername/astrbot_plugin_jm_comic")
+@register("jm_cosmos", "GEMILUXVII", "全能型JM漫画下载与管理工具", "1.0.5", "https://github.com/yourusername/astrbot_plugin_jm_comic")
 class JMCosmosPlugin(Star):
-    """禁漫宇宙插件主类"""
+    """Cosmos插件主类"""
     
     def __init__(self, context: Context, config=None):
         super().__init__(context)
@@ -605,7 +605,7 @@ class JMCosmosPlugin(Star):
         self.base_path = os.path.realpath(os.path.dirname(__file__))
         
         # 详细日志记录
-        logger.info(f"禁漫宇宙插件初始化，配置参数: {config}")
+        logger.info(f"Cosmos插件初始化，配置参数: {config}")
         
         # 初始化组件 - 使用插件名初始化ResourceManager而不是目录路径
         self.resource_manager = ResourceManager(self.plugin_name)
@@ -1880,13 +1880,13 @@ class JMCosmosPlugin(Star):
         
         用法: /jmupdate
         '''
-        yield event.plain_result("禁漫宇宙插件 v1.0.4\n特性:\n - 增强了错误处理\n - 添加了调试模式\n - 添加了网站结构变化的适配\n - 修复了PDF文件传输失败问题\n - 新增图片预览功能(/jmimg)和PDF文件诊断(/jmpdf)\n - 新增域名测试与自动更新功能(/jmdomain)\n - 增加了智能目录识别功能，支持非标准命名的漫画目录\n - 改进了图片统计逻辑，更准确显示图片和章节信息\n\n当前使用的域名:\n" + '\n'.join([f"- {domain}" for domain in self.config.domain_list]))
+        yield event.plain_result("JM-Cosmos插件 v1.0.5\n特性:\n - 增强了错误处理\n - 添加了调试模式\n - 添加了网站结构变化的适配\n - 修复了PDF文件传输失败问题\n - 新增图片预览功能(/jmimg)和PDF文件诊断(/jmpdf)\n - 新增域名测试与自动更新功能(/jmdomain)\n - 增加了智能目录识别功能，支持非标准命名的漫画目录\n - 改进了图片统计逻辑，更准确显示图片和章节信息\n\n当前使用的域名:\n" + '\n'.join([f"- {domain}" for domain in self.config.domain_list]))
 
     @filter.command("jmhelp")
     async def show_help(self, event: AstrMessageEvent):
         """显示帮助信息"""
         help_text = (
-            "📚 禁漫宇宙插件命令列表：\n"
+            "📚 JM-Cosmos插件命令列表：\n"
             "1️⃣ /jm [ID] - 下载漫画为PDF\n"
             "2️⃣ /jmimg [ID] [页数] - 发送漫画前几页图片\n"
             "3️⃣ /jminfo [ID] - 查看漫画信息\n"
@@ -1909,6 +1909,6 @@ class JMCosmosPlugin(Star):
 
     async def terminate(self):
         """插件被卸载时清理资源"""
-        logger.info("禁漫宇宙插件正在被卸载，执行资源清理...")
+        logger.info("JM-Cosmos插件正在被卸载，执行资源清理...")
         # 这里可以添加资源清理代码，例如关闭连接、保存状态等
         pass 
