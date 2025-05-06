@@ -2,7 +2,7 @@
 
 # 🌟 JM-Cosmos
 
-[![版本](https://img.shields.io/badge/版本-v1.0.5-blue.svg)](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos) [![许可证](https://img.shields.io/badge/许可证-MIT-green.svg)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/) [![AstrBot](https://img.shields.io/badge/AstrBot-3.4+-orange.svg)](https://github.com/Soulter/AstrBot) [![jmcomic](https://img.shields.io/badge/jmcomic-≥2.5.38-purple.svg)](https://pypi.org/project/jmcomic/) [![更新日期](https://img.shields.io/badge/更新日期-2025.05.05-lightgrey.svg)](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos)
+[![版本](https://img.shields.io/badge/版本-v1.0.6-blue.svg)](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos) [![许可证](https://img.shields.io/badge/许可证-MIT-green.svg)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/) [![AstrBot](https://img.shields.io/badge/AstrBot-3.4+-orange.svg)](https://github.com/Soulter/AstrBot) [![jmcomic](https://img.shields.io/badge/jmcomic-≥2.5.38-purple.svg)](https://pypi.org/project/jmcomic/) [![更新日期](https://img.shields.io/badge/更新日期-2025.05.06-lightgrey.svg)](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos)
 
 </div>
 
@@ -183,6 +183,9 @@ pip install -r requirements.txt
 4. 请遵守当地法律法规
 
 ## 更新日志
+
+### v1.0.6
+- 更换文件发送方式，修复文件消息缺少参数问题
 
 ### v1.0.5
 - 迁移到AstrBot官方配置系统，支持在管理面板中配置
