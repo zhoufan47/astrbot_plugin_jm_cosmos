@@ -833,19 +833,12 @@ class JMCosmosPlugin(Star):
                 if self.config.debug_mode:
                     yield event.plain_result(f"调试信息：尝试发送文件路径 {pdf_path}，大小 {file_size:.2f}MB")
                 
-                yield event.chain_result([File(name=f"漫画_{comic_id}.pdf", file=pdf_path)])
+                yield event.chain_result([File(name=f"{comic_id}.pdf", file=pdf_path)])
+            
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"发送PDF文件失败: {error_msg}")
                 self._save_debug_info(f"send_pdf_error_{comic_id}", traceback.format_exc())
-                
-                # 尝试与用户沟通
-                if "rich media transfer failed" in error_msg:
-                    yield event.plain_result(f"QQ富媒体传输失败，文件可能过大或格式不受支持。文件路径: {pdf_path}")
-                    # 尝试其他传输方式
-                    yield event.plain_result(f"您可以手动从以下路径获取文件: {pdf_path}")
-                else:
-                    yield event.plain_result(f"发送文件失败: {error_msg}")
             return
         
         # 下载漫画
@@ -896,7 +889,7 @@ class JMCosmosPlugin(Star):
             if self.config.debug_mode:
                 yield event.plain_result(f"调试信息：尝试发送文件路径 {pdf_path}，大小 {file_size:.2f}MB")
             
-            yield event.chain_result([File(name=f"漫画_{comic_id}.pdf", file=pdf_path)])
+            yield event.chain_result([File(name=f"{comic_id}.pdf", file=pdf_path)])
         except Exception as e:
             error_msg = str(e)
             logger.error(f"发送PDF文件失败: {error_msg}")
