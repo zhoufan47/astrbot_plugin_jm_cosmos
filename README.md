@@ -226,7 +226,7 @@ pip install -r requirements.txt
 
 ## 许可协议
 
-本项目采用MIT许可协议。
+本插件采用 **GNU Affero General Public License v3.0 (AGPLv3)** 
 
 ## 致谢
 
