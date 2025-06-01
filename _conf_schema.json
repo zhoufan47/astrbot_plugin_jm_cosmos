@@ -24,6 +24,12 @@
         "hint": "同时下载的最大线程数，建议不超过20",
         "default": 10
     },
+    "show_cover": {
+        "description": "显示封面图片",
+        "type": "bool",
+        "hint": "是否在漫画信息和搜索结果中显示封面图片",
+        "default": true
+    },
     "debug_mode": {
         "description": "调试模式",
         "type": "bool",

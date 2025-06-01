@@ -4,7 +4,7 @@
 
 <br>
 <div align="center">
-  <a href="#-更新日志"><img src="https://img.shields.io/badge/VERSION-v1.0.6-E91E63?style=for-the-badge" alt="Version"></a>
+  <a href="#-更新日志"><img src="https://img.shields.io/badge/VERSION-v1.0.7-E91E63?style=for-the-badge" alt="Version"></a>
   <a href="https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-009688?style=for-the-badge" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/PYTHON-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
   <a href="https://github.com/AstrBotDevs/AstrBot"><img src="https://img.shields.io/badge/AstrBot-Compatible-00BFA5?style=for-the-badge&logo=robot&logoColor=white" alt="AstrBot Compatible"></a>
@@ -220,6 +220,10 @@ JM-Cosmos 是一个基于 AstrBot 开发的 JM 漫画下载插件，支持漫画
 - 请遵守当地法律法规
 
 ## 📝 更新日志
+
+### **v1.0.7** (2025-06-01)
+
+- 新增配置项 `show_cover`，支持控制是否在漫画信息和搜索结果中显示封面图片
 
 ### **v1.0.6** (2025-05-06)
 

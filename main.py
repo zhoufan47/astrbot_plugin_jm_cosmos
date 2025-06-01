@@ -59,6 +59,7 @@ class CosmosConfig:
     avs_cookie: str
     max_threads: int
     debug_mode: bool
+    show_cover: bool
     
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'CosmosConfig':
@@ -68,7 +69,8 @@ class CosmosConfig:
             proxy=config_dict.get('proxy'),
             avs_cookie=config_dict.get('avs_cookie', ""),
             max_threads=config_dict.get('max_threads', 10),
-            debug_mode=config_dict.get('debug_mode', False)
+            debug_mode=config_dict.get('debug_mode', False),
+            show_cover=config_dict.get('show_cover', True)
         )
     
     def to_dict(self) -> Dict[str, Any]:
@@ -78,7 +80,8 @@ class CosmosConfig:
             'proxy': self.proxy,
             'avs_cookie': self.avs_cookie,
             'max_threads': self.max_threads,
-            'debug_mode': self.debug_mode
+            'debug_mode': self.debug_mode,
+            'show_cover': self.show_cover
         }
     
     @classmethod
@@ -89,7 +92,8 @@ class CosmosConfig:
             proxy=None,
             avs_cookie="",
             max_threads=10,
-            debug_mode=False
+            debug_mode=False,
+            show_cover=True
         )
         
         if not os.path.exists(config_path):
@@ -653,7 +657,8 @@ class JMCosmosPlugin(Star):
                 proxy=proxy,
                 avs_cookie=str(config.get("avs_cookie", "")),
                 max_threads=max_threads,
-                debug_mode=debug_mode
+                debug_mode=debug_mode,
+                show_cover=bool(config.get("show_cover", True)) # 添加 show_cover
             )
             logger.info(f"已加载AstrBot配置")
         else:
@@ -680,10 +685,10 @@ class JMCosmosPlugin(Star):
             if os.path.exists(self.astrbot_config_path):
                 try:
                     logger.info(f"尝试从AstrBot配置文件加载: {self.astrbot_config_path}")
-                    with open(self.astrbot_config_path, 'r', encoding='utf-8') as f:
+                    with open(self.astrbot_config_path, 'r', encoding='utf-8-sig') as f: # 使用 utf-8-sig
                         astrbot_config = json.load(f)
                     
-                    # 处理domain_list
+                    # 处理domain_list，确保是列表
                     domain_list = astrbot_config.get("domain_list", ["18comic.vip", "jm365.xyz", "18comic.org"])
                     if not isinstance(domain_list, list):
                         if isinstance(domain_list, str):
@@ -703,7 +708,8 @@ class JMCosmosPlugin(Star):
                         proxy=proxy,
                         avs_cookie=str(astrbot_config.get("avs_cookie", "")),
                         max_threads=int(astrbot_config.get("max_threads", 10)),
-                        debug_mode=bool(astrbot_config.get("debug_mode", False))
+                        debug_mode=bool(astrbot_config.get("debug_mode", False)),
+                        show_cover=bool(astrbot_config.get("show_cover", True)) # 添加 show_cover
                     )
                     logger.info(f"已从AstrBot配置文件加载配置")
                 except Exception as e:
@@ -714,7 +720,8 @@ class JMCosmosPlugin(Star):
                         proxy=None,
                         avs_cookie="",
                         max_threads=10,
-                        debug_mode=False
+                        debug_mode=False,
+                        show_cover=True # 添加 show_cover
                     )
                     logger.info("使用默认配置")
             else:
@@ -722,7 +729,7 @@ class JMCosmosPlugin(Star):
                 if os.path.exists(old_config_path):
                     try:
                         logger.info(f"尝试从旧配置文件加载: {old_config_path}")
-                        with open(old_config_path, 'r', encoding='utf-8') as f:
+                        with open(old_config_path, 'r', encoding='utf-8-sig') as f: # 使用 utf-8-sig
                             old_config = json.load(f)
                         
                         # 处理domain_list
@@ -745,7 +752,8 @@ class JMCosmosPlugin(Star):
                             proxy=proxy,
                             avs_cookie=str(old_config.get("avs_cookie", "")),
                             max_threads=int(old_config.get("max_threads", 10)),
-                            debug_mode=bool(old_config.get("debug_mode", False))
+                            debug_mode=bool(old_config.get("debug_mode", False)),
+                            show_cover=bool(old_config.get("show_cover", True)) # 添加 show_cover
                         )
                         
                         # 在下次使用_update_astrbot_config时会自动迁移
@@ -758,7 +766,8 @@ class JMCosmosPlugin(Star):
                             proxy=None,
                             avs_cookie="",
                             max_threads=10,
-                            debug_mode=False
+                            debug_mode=False,
+                            show_cover=True # 添加 show_cover
                         )
                         logger.info("使用默认配置")
                 else:
@@ -768,7 +777,8 @@ class JMCosmosPlugin(Star):
                         proxy=None,
                         avs_cookie="",
                         max_threads=10,
-                        debug_mode=False
+                        debug_mode=False,
+                        show_cover=True # 添加 show_cover
                     )
                     logger.info("使用默认配置")
         
@@ -788,7 +798,7 @@ class JMCosmosPlugin(Star):
             logger.info(f"已保存调试信息到 {log_path}")
         except Exception as e:
             logger.error(f"保存调试信息失败: {str(e)}")
-    
+            
     async def _build_album_message(self, client, album, album_id: str, cover_path: str) -> List:
         """创建漫画信息消息"""
         total_pages = self.downloader.get_total_pages(client, album)
@@ -799,7 +809,12 @@ class JMCosmosPlugin(Star):
             f"📅: {getattr(album, 'pub_date', '未知')}\n"
             f"📃: {total_pages}"
         )
-        return [Plain(text=message), Image.fromFileSystem(cover_path)]
+        
+        # 根据配置决定是否发送封面图片
+        if self.config.show_cover:
+            return [Plain(text=message), Image.fromFileSystem(cover_path)]
+        else:
+            return [Plain(text=message)]
     
     @filter.command("jm")
     async def download_comic(self, event: AstrMessageEvent):
@@ -1098,7 +1113,7 @@ class JMCosmosPlugin(Star):
                 
             if len(results) < order:
                 # 找到了一些结果，但不够满足序号要求
-                result_list = '\n'.join([f"{i+1}. [{id}] {title}" for i, (id, title) in enumerate(results)])
+                result_list = '\n'.join([f"{i+1}. [{id}] {title}" for i, title in enumerate(results)])
                 yield event.plain_result(f"仅找到{len(results)}条结果，无法显示第{order}条:\n{result_list}")
                 return
             
@@ -1254,13 +1269,14 @@ class JMCosmosPlugin(Star):
         /jmconfig threads [数量] - 设置最大下载线程数
         /jmconfig domain [域名] - 添加JM漫画域名
         /jmconfig debug [on/off] - 开启/关闭调试模式
+        /jmconfig cover [on/off] - 控制是否显示封面图片
         /jmconfig info - 显示当前配置信息
         /jmconfig reload - 重新加载配置文件
         /jmconfig clearcache - 清理封面缓存
         '''
         args = event.message_str.strip().split()
         if len(args) < 2:
-            yield event.plain_result("用法:\n/jmconfig proxy [代理URL] - 设置代理URL\n/jmconfig noproxy - 清除代理设置\n/jmconfig cookie [AVS Cookie] - 设置登录Cookie\n/jmconfig threads [数量] - 设置最大下载线程数\n/jmconfig domain [域名] - 添加JM漫画域名\n/jmconfig debug [on/off] - 开启/关闭调试模式\n/jmconfig info - 显示当前配置信息\n/jmconfig reload - 重新加载配置文件\n/jmconfig clearcache - 清理封面缓存")
+            yield event.plain_result("用法:\n/jmconfig proxy [代理URL] - 设置代理URL\n/jmconfig noproxy - 清除代理设置\n/jmconfig cookie [AVS Cookie] - 设置登录Cookie\n/jmconfig threads [数量] - 设置最大下载线程数\n/jmconfig domain [域名] - 添加JM漫画域名\n/jmconfig debug [on/off] - 开启/关闭调试模式\n/jmconfig cover [on/off] - 控制是否显示封面图片\n/jmconfig info - 显示当前配置信息\n/jmconfig reload - 重新加载配置文件\n/jmconfig clearcache - 清理封面缓存")
             return
         
         action = args[1].lower()
@@ -1270,7 +1286,7 @@ class JMCosmosPlugin(Star):
             count = self.resource_manager.clear_cover_cache()
             yield event.plain_result(f"封面缓存清理完成，共删除 {count} 个文件")
             return
-            
+
         if action == "info":
             # 显示当前配置信息
             domain_list_str = ", ".join(self.config.domain_list)
@@ -1278,6 +1294,7 @@ class JMCosmosPlugin(Star):
             cookie_str = "已设置" if self.config.avs_cookie else "未设置"
             threads_str = str(self.config.max_threads)
             debug_str = "开启" if self.config.debug_mode else "关闭"
+            cover_str = "显示" if self.config.show_cover else "不显示"
             
             info_message = (
                 f"当前配置信息:\n"
@@ -1285,7 +1302,8 @@ class JMCosmosPlugin(Star):
                 f"代理: {proxy_str}\n"
                 f"Cookie: {cookie_str}\n"
                 f"最大线程数: {threads_str}\n"
-                f"调试模式: {debug_str}"
+                f"调试模式: {debug_str}\n"
+                f"显示封面: {cover_str}"
             )
             
             yield event.plain_result(info_message)
@@ -1297,7 +1315,7 @@ class JMCosmosPlugin(Star):
                 # 尝试从AstrBot配置加载
                 if os.path.exists(self.astrbot_config_path):
                     try:
-                        with open(self.astrbot_config_path, 'r', encoding='utf-8') as f:
+                        with open(self.astrbot_config_path, 'r', encoding='utf-8-sig') as f: # 使用 utf-8-sig
                             astrbot_config = json.load(f)
                         
                         # 处理domain_list
@@ -1320,7 +1338,8 @@ class JMCosmosPlugin(Star):
                             proxy=proxy,
                             avs_cookie=str(astrbot_config.get("avs_cookie", "")),
                             max_threads=int(astrbot_config.get("max_threads", 10)),
-                            debug_mode=bool(astrbot_config.get("debug_mode", False))
+                            debug_mode=bool(astrbot_config.get("debug_mode", False)),
+                            show_cover=bool(astrbot_config.get("show_cover", True)) # 添加 show_cover
                         )
                         
                         # 更新客户端工厂
@@ -1389,13 +1408,13 @@ class JMCosmosPlugin(Star):
             if domain not in self.config.domain_list:
                 self.config.domain_list.append(domain)
                 if self._update_astrbot_config("domain_list", self.config.domain_list):
-                    # 更新客户端工厂选项
-                    self.client_factory.update_option()
+                    # 更新客户端工厂选项                    self.client_factory.update_option()
                     yield event.plain_result(f"已添加域名: {domain}")
                 else:
                     yield event.plain_result("保存配置失败，请检查权限")
             else:
                 yield event.plain_result(f"域名已存在: {domain}")
+                
         elif action == "debug" and len(args) >= 3:
             debug_mode = args[2].lower()
             if debug_mode == "on":
@@ -1414,6 +1433,24 @@ class JMCosmosPlugin(Star):
                     # 更新客户端工厂选项
                     self.client_factory.update_option()
                     yield event.plain_result("已关闭调试模式")
+                else:
+                    yield event.plain_result("保存配置失败，请检查权限")
+            else:
+                yield event.plain_result("参数错误，请使用 on 或 off")
+        elif action == "cover" and len(args) >= 3:
+            cover_mode = args[2].lower()
+            if cover_mode == "on":
+                self.config.show_cover = True
+                # 更新AstrBot配置
+                if self._update_astrbot_config("show_cover", True):
+                    yield event.plain_result("已开启封面图片显示")
+                else:
+                    yield event.plain_result("保存配置失败，请检查权限")
+            elif cover_mode == "off":
+                self.config.show_cover = False
+                # 更新AstrBot配置
+                if self._update_astrbot_config("show_cover", False):
+                    yield event.plain_result("已关闭封面图片显示")
                 else:
                     yield event.plain_result("保存配置失败，请检查权限")
             else:
@@ -1889,8 +1926,7 @@ class JMCosmosPlugin(Star):
         
         用法: /jmupdate
         '''
-        yield event.plain_result("JM-Cosmos插件 v1.0.6\n特性:\n 更换文件发送方式，修复文件消息缺少参数问题\n" + '\n'.join([f"- {domain}" for domain in self.config.domain_list]))
-
+        yield event.plain_result("JM-Cosmos插件 v1.0.6\n特性:\n 更换文件发送方式，修复文件消息缺少参数问题\n" + '\n'.join([f"- {domain}" for domain in self.config.domain_list]))   
     @filter.command("jmhelp")
     async def show_help(self, event: AstrMessageEvent):
         """显示帮助信息"""
@@ -1913,6 +1949,7 @@ class JMCosmosPlugin(Star):
             "· 作者搜索按时间倒序排列\n"
             "· 如果PDF发送失败，可使用/jmimg命令获取图片\n"
             "· 如果遇到网站结构更新导致失败，请通过jmconfig或jmdomain添加新域名\n"
+            "· 可通过配置文件的show_cover选项控制是否显示封面图片\n"
         )
         yield event.plain_result(help_text)
 
@@ -1920,4 +1957,4 @@ class JMCosmosPlugin(Star):
         """插件被卸载时清理资源"""
         logger.info("JM-Cosmos插件正在被卸载，执行资源清理...")
         # 这里可以添加资源清理代码，例如关闭连接、保存状态等
-        pass 
+        pass
