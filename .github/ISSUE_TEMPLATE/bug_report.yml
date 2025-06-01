@@ -1,0 +1,157 @@
+name: 错误报告 (JM-Cosmos Bug Report)
+description: 提交 JM-Cosmos 插件的错误
+title: "[BUG] <请在此处填写你遇到的问题>"
+labels: ["bug"]
+assignees:
+  - GEMILUXVII
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢您花时间填写此错误报告！请尽可能详细地描述问题，以便我们能更快地定位并修复它。
+
+  - type: checkboxes
+    attributes:
+      label: 提交前确认 (Pre-submission Checklist)
+      description: 在提交此错误报告前，请确认以下内容：
+      options:
+        - label: 我已仔细阅读过项目的 README.md 文档，确认其中没有关于此错误的说明或解决方案。
+          required: true
+        - label: 我已检查过现有的 Issues，未发现重复报告。
+          required: true
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: 错误描述 (Bug Description)
+      description: 请清晰简洁地描述遇到的错误。
+      placeholder: 例如：“当我尝试使用 /jm 123456 命令下载漫画时，插件提示域名不可用，即使我已经更新过域名。”
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 复现步骤 (Steps to Reproduce)
+      description: 请详细说明如何复现这个错误。包括使用的具体命令和参数。
+      placeholder: |
+        1. 在 QQ 群聊中发送命令 `/jm 123456`
+        2. (或者) 尝试使用 `/jmsearch 关键词 1`
+        3. 观察到机器人回复了错误信息：“下载失败：所有域名均不可用”
+        4. （其他相关步骤）
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 期望行为 (Expected Behavior)
+      description: 请描述在上述步骤之后，期望发生什么。
+      placeholder: 例如：“机器人应该成功连接到 JM 网站，下载漫画 ID 为 123456 的图片，并将其转换为 PDF 文件发送到群聊。”
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 实际行为 (Actual Behavior)
+      description: 请描述实际发生了什么。
+      placeholder: 例如：“机器人回复‘下载失败：所有域名均不可用’，控制台输出了多次连接超时的错误日志。”
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots-logs
+    attributes:
+      label: 截图/日志 (Screenshots/Logs)
+      description: |
+        如果适用，请在此处添加截图或日志以帮助解释问题。
+        对于日志，请使用 `/jmconfig debug on` 开启插件的调试模式，并复制相关的日志片段。
+        日志通常位于 `AstrBot/data/plugin_data/jm_cosmos/logs/` 目录下。
+        **重要提示：** 请确保在上传截图或日志前，已移除或遮盖所有个人身份信息 (PII) 或其他敏感数据，例如 Cookie！
+      placeholder: |
+        （在此处粘贴截图或日志）
+        ```log
+        [时间戳] [DEBUG] Attempting to connect to domain xxx...
+        [时间戳] [ERROR] Failed to download chapter: Connection timed out
+        ```
+    validations:
+      required: false
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: 插件版本 (JM-Cosmos Version)
+      description: 正在使用的 JM-Cosmos 插件版本是多少？ (例如 v1.0.6)
+      placeholder: "例如：v1.0.6"
+    validations:
+      required: true
+
+  - type: input
+    id: astrbot-version
+    attributes:
+      label: AstrBot 版本 (AstrBot Version)
+      description: 正在使用的 AstrBot 版本是多少？
+      placeholder: "例如：v3.x.x"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python 版本 (Python Version)
+      description: 使用的 Python 版本是多少？ (JM-Cosmos 要求 3.10+)
+      placeholder: "例如：3.10.5"
+    validations:
+      required: true
+
+  - type: input
+    id: jmcomic-lib-version
+    attributes:
+      label: JMComic 库版本 (JMComic Library Version)
+      description: 使用的 `jmcomic` Python 库版本是多少？ (JM-Cosmos 要求 ≥2.5.39)
+      placeholder: "例如：2.5.39"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统 (Operating System)
+      description: 在哪个操作系统上运行 AstrBot 和插件？
+      options:
+        - Windows
+        - Linux (请在下方“其他信息”中注明发行版)
+        - macOS
+        - Docker (请在下方“其他信息”中注明基础镜像)
+        - 其他 (请在下方“其他信息”中注明)
+    validations:
+      required: true
+
+  - type: textarea
+    id: relevant-config
+    attributes:
+      label: 相关配置 (Relevant Configuration)
+      description: |
+        请列出可能与此错误相关的 JM-Cosmos 插件配置项及其值。
+        这些配置可以在 AstrBot 管理面板或 `data/config/astrbot_plugin_jm_cosmos_config.json` 文件中找到。
+        例如：`domain_list`, `proxy`, `avs_cookie`, `max_threads`, `debug_mode` 等。
+        **请不要泄露完整的 Cookie 值或其他敏感信息！如果问题与 Cookie 相关，可以说明是否已配置。**
+      placeholder: |
+        domain_list: ["jm-official.com", "18comic.vip"] (当前使用的域名列表)
+        proxy: "http://127.0.0.1:7890" (如果已配置)
+        avs_cookie: "已配置" / "未配置"
+        max_threads: 5
+        debug_mode: true
+        # 其他可能相关的配置...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 其他信息 (Additional Context)
+      description: 在此处添加有关该问题的任何其他上下文或备注。例如，问题是间歇性出现还是稳定复现？是否在特定网络环境下出现？是否尝试过其他排查步骤？
+      placeholder: "例如：这个问题只在家庭网络中出现，使用移动数据网络时正常。我尝试过重启 AstrBot 和更新域名，但问题依旧。"
+    validations:
+      required: false

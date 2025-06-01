@@ -1,0 +1,64 @@
+name: 功能请求 (JM-Cosmos Feature Request)
+description: 为 JM-Cosmos 插件提出新功能或改进建议
+title: "[FEATURE] <简述功能建议>"
+labels: ["enhancement"]
+assignees:
+  - GEMILUXVII
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢为 JM-Cosmos 插件提出功能建议！请详细描述你的想法，这将有助于我们更好地理解并评估它。
+
+  - type: checkboxes
+    id: readme-checked
+    attributes:
+      label: README 阅读确认 (README Confirmation)
+      description: 提交此功能请求前，请确认：
+      options:
+        - label: 我已阅读项目的 README.md 文档，确认所提功能在现有版本中无法实现，或现有实现存在不足。
+          required: true
+        - label: 我已检查过现有的 Issues，未发现重复的功能请求。
+          required: true
+
+  - type: textarea
+    id: problem-related
+    attributes:
+      label: 此功能请求是否与某个现有问题或限制相关？ (Is this feature request related to a problem?)
+      description: |
+        清晰简洁地描述相关问题或当前插件的限制。如果只是一个全新的点子，而非解决特定痛点，可简单说明或跳过。
+        例如：“目前下载漫画时，如果网络中断，需要从头开始重新下载，很不方便。”
+        或者：“希望能够批量下载某个作者的所有作品。”
+      placeholder: "例如：当前无法 [...]，或者 [...] 功能可以得到改进。"
+
+  - type: textarea
+    id: solution-description
+    attributes:
+      label: 描述期望的解决方案或新功能 (Describe the solution you'd like)
+      description: 清晰简洁地描述希望实现的功能及其理想工作方式。如果可能，请描述相关的命令或用户交互。
+      placeholder: |
+        例如：“允许用户在 `/jm [ID]` 命令后添加参数，如 `--no-pdf` 来只下载图片不生成 PDF。”
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: 是否考虑过其他替代方案？ (Describe alternatives you've considered)
+      description: 清晰简洁地描述在提出此建议前，是否考虑过其他替代方案或类似功能。
+      placeholder: "例如：曾尝试手动分段下载，但操作繁琐且容易出错。"
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 补充信息 (Additional Context)
+      description: |
+        在此添加关于此功能请求的其他上下文、使用场景、可能的实现思路（若方便）、相关的用户故事或参考其他类似工具的功能。
+      placeholder: |
+        例如：“很多漫画下载工具都支持断点续传。对于喜欢收藏特定作者作品的用户来说，批量下载功能非常实用。”
+        （可在此附上相关的草图、流程图或参考示例截图）
+
+  - type: markdown
+    attributes:
+      value: |
+        感谢你的建议！
