@@ -315,3 +315,20 @@ class DatabaseManager:
         except sqlite3.Error as e:
             print(f"获取漫画的最初下载用户时发生错误：{e}")
             return "0"
+
+    def get_comic_by_id(self, comic_id: str) -> Optional[Comic]:
+        """根据ID获取漫画"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, ComicId, ComicName,Tags
+                    FROM Comics WHERE UserId = ?
+                ''', (comic_id,))
+                row = cursor.fetchone()
+                if row:
+                    return Comic(*row)
+                return None
+        except Exception as e:
+            logger.error(f"查询漫画失败: {e}")
+            return None

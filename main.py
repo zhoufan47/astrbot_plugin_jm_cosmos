@@ -1295,6 +1295,11 @@ class JMCosmosPlugin(Star):
             yield event.plain_result("无效的漫画ID格式，请提供纯数字ID")
             return
 
+        comic = self.db_manager.get_comic_by_id(comic_id)
+        if comic and comic.IsBacklist == '1':
+            yield event.plain_result(f"漫画[{comic_id}]已加入黑名单，无法下载")
+            return
+
         if self.config.debug_mode:
             yield event.plain_result(
                 f"开始下载漫画ID: {comic_id}，请稍候...\n当前配置的最大线程数: {self.config.max_threads}"
@@ -1450,11 +1455,16 @@ class JMCosmosPlugin(Star):
                 yield event.plain_result(f"PDF生成后重命名失败: {rename_e}")
                 return
         count = self.db_manager.get_comic_download_count(comic_id)
-        if count > 1:
-            last_download_user = self.db_manager.get_last_download_user(comic_id)
-            first_download_user = self.db_manager.get_first_download_user(comic_id)
+        if count > 0:
+            last_download_user_id = self.db_manager.get_last_download_user(comic_id)
+            #last_download_user = self.db_manager.get_user_by_id(last_download_user_id)
+            first_download_user_id = self.db_manager.get_first_download_user(comic_id)
+            #first_download_user = self.db_manager.get_user_by_id(first_download_user_id)
             yield event.plain_result(
-                f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_download_user} ,上一次下载用户是 {last_download_user} ")
+                f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_download_user_id} ,上一次下载用户是 {last_download_user_id} ")
+        else:
+            yield event.plain_result(f"漫画[{comic_id}]是第一次下载,你发现了新大陆！")
+
         self.db_manager.insert_download(comic_id)
         self.db_manager.add_comic_download_count(comic_id)
         # 发送PDF
