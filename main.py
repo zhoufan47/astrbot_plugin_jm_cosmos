@@ -18,7 +18,8 @@ from enum import Enum
 import time
 import concurrent.futures
 from threading import Lock
-from .database.DatabaseManager import DatabaseManager, User
+from .database import DBManager
+from .database import User,Comic
 import jmcomic
 from jmcomic import JmMagicConstants
 
@@ -1018,7 +1019,7 @@ class JMCosmosPlugin(Star):
             "db",
             "jm_cosmos.db"
         )
-        self.db_manager = DatabaseManager(self.db_path)
+        self.db_manager = DBManager(self.db_path)
 
         # 详细日志记录
         logger.info(f"Cosmos插件初始化，配置参数: {config}")
@@ -1270,6 +1271,7 @@ class JMCosmosPlugin(Star):
             f"📃: {total_pages}"
         )
         if not self.db_manager.is_comic_exists(album_id):
+            logger.info(f"添加漫画[{album_id}]到数据库")
             self.db_manager.add_comic(album_id, album.title, ','.join(album.tags[:5]))
 
         # 根据配置决定是否发送封面图片
@@ -1303,8 +1305,22 @@ class JMCosmosPlugin(Star):
 
         User = self.db_manager.get_user_by_id(event.get_sender_id())
         if User is None:
+            logger.info("用户不存在，添加用户")
             self.db_manager.add_user(event.get_sender_id(),event.get_sender_name())
 
+        count = self.db_manager.get_comic_download_count(comic_id)
+        if count > 0:
+            last_download_user_id = self.db_manager.get_last_download_user(comic_id)
+            #last_download_user = self.db_manager.get_user_by_id(last_download_user_id)
+            first_download_user_id = self.db_manager.get_first_download_user(comic_id)
+            #first_download_user = self.db_manager.get_user_by_id(first_download_user_id)
+            yield event.plain_result(
+                f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_download_user_id} ,上一次下载用户是 {last_download_user_id} ")
+        else:
+            yield event.plain_result(f"漫画[{comic_id}]是第一次下载,你发现了新大陆！")
+
+        self.db_manager.insert_download(event.get_sender_id(),comic_id)
+        self.db_manager.add_comic_download_count(comic_id)
         if self.config.debug_mode:
             yield event.plain_result(
                 f"开始下载漫画ID: {comic_id}，请稍候...\n当前配置的最大线程数: {self.config.max_threads}"
@@ -1459,19 +1475,6 @@ class JMCosmosPlugin(Star):
                 logger.error(f"重命名PDF文件失败: {rename_e}")
                 yield event.plain_result(f"PDF生成后重命名失败: {rename_e}")
                 return
-        count = self.db_manager.get_comic_download_count(comic_id)
-        if count > 0:
-            last_download_user_id = self.db_manager.get_last_download_user(comic_id)
-            #last_download_user = self.db_manager.get_user_by_id(last_download_user_id)
-            first_download_user_id = self.db_manager.get_first_download_user(comic_id)
-            #first_download_user = self.db_manager.get_user_by_id(first_download_user_id)
-            yield event.plain_result(
-                f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_download_user_id} ,上一次下载用户是 {last_download_user_id} ")
-        else:
-            yield event.plain_result(f"漫画[{comic_id}]是第一次下载,你发现了新大陆！")
-
-        self.db_manager.insert_download(event.get_sender_id(),comic_id)
-        self.db_manager.add_comic_download_count(comic_id)
         # 发送PDF
         yield event.plain_result(f" {comic_id} 下载完成，准备发送...")  # 添加发送提示
         async for result in send_the_file(abs_pdf_path, pdf_name):
@@ -2883,6 +2886,7 @@ class JMCosmosPlugin(Star):
         if action == "最多下载用户":
             logger.info("查询最多下载用户")
             user_id = self.db_manager.query_most_download_user()
+            logger.info(f"查询到用户ID: {user_id}")
             User = self.db_manager.get_user_by_id(user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，最多下载用户是{User.UserName}[{User.UserId}]");
         elif action == "最多下载漫画":

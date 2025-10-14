@@ -1,50 +1,27 @@
-# DatabaseManager.py
+# db_manager.py
 import sqlite3
 import os
 from astrbot.api import logger
 from typing import Optional
-from dataclasses import dataclass
+
+from .domains import User,Comic
+
 from datetime import datetime
 
-@dataclass
-class User:
-    """用户数据类"""
-    id: Optional[int] = None
-    UserId: Optional[str] = None
-    UID: Optional[str] = None
-    UserName: Optional[str] = None
 
-@dataclass
-class Comic:
-    """漫画数据类"""
-    id: Optional[int] = None
-    ComicId: Optional[str] = None
-    ComicName: Optional[str] = None
-    DownloadDate: Optional[str] = None
-    DownloadCount: Optional[str] = None
-    IsBacklist: Optional[str] = None
+"""SQLite数据库管理器"""
+class DBManager:
 
-@dataclass
-class Download:
-    """下载数据类"""
-    id: Optional[int] = None
-    UserId: Optional[str] = None
-    ComicId: Optional[str] = None
-    DownloadDate: Optional[str] = None
-
-class DatabaseManager:
-    """SQLite数据库管理器"""
-    
     def __init__(self, db_path: str):
         self.db_path = db_path
         self.init_database()
-    
+
     def init_database(self):
         """初始化数据库和表结构"""
         try:
             # 确保数据库目录存在
             os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-            
+
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
 
@@ -83,13 +60,13 @@ class DatabaseManager:
                                         datetime ( 'now', 'localtime' ))
                                     )
                                 """)
-                
+
                 conn.commit()
                 logger.info("数据库初始化完成")
         except Exception as e:
             logger.error(f"数据库初始化失败: {e}")
             raise
-    
+
     def add_user(self, user_id: str, user_name: Optional[str] = None) -> bool:
         """添加新用户"""
         try:
@@ -109,6 +86,23 @@ class DatabaseManager:
             logger.error(f"添加用户失败: {e}")
             return False
 
+    def delete_user(self, user_id: str) -> bool:
+        """删除用户"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                                DELETE FROM Users WHERE UserId=?
+                                """, user_id)
+                conn.commit()
+                logger.info(f"用户 {user_id} 删除成功")
+                return True
+        except sqlite3.IntegrityError as e:
+            logger.warning(f"用户 {user_id} 已存在: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"删除用户失败: {e}")
+            return False
 
     def add_comic(self, comic_id: str, comic_name: str, tags: str) -> bool:
         """添加新漫画"""
@@ -116,9 +110,9 @@ class DatabaseManager:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                                INSERT INTO comics (ComicId, ComicName, DownloadCount, Tags)
-                                VALUES (?, ?, ?, ?)
-                                """, (comic_id, comic_name,0, tags)
+                                INSERT INTO Comics (ComicId, ComicName, DownloadCount, Tags,DownloadDate)
+                                VALUES (?, ?, ?, ?,?)
+                                """, (comic_id, comic_name,0, tags,datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 )
                 conn.commit()
                 logger.info(f"漫画 {comic_id} 添加成功")
@@ -131,22 +125,25 @@ class DatabaseManager:
             return False
 
     def get_user_by_id(self, user_id: str) -> Optional[User]:
+        logger.info(f"开始查询用户{user_id}")
         """根据ID获取用户"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
                     SELECT id, UserId, UserName
-                    FROM users WHERE UserId = ?
+                    FROM Users WHERE UserId = ?
                 ''', (user_id,))
                 row = cursor.fetchone()
                 if row:
+                    logger.info(f"用户 {user_id} 查询成功,{User(*row)}")
                     return User(*row)
+                logger.info(f"用户 {user_id} 不存在")
                 return None
         except Exception as e:
             logger.error(f"查询用户失败: {e}")
             return None
-    
+
     def query_most_download_user(self):
         """
         查询下载次数最多的用户。
@@ -165,7 +162,7 @@ class DatabaseManager:
                                 """)
                 result = cursor.fetchone()  # 获取一条记录
                 if result is None: return "0"
-                return result
+                return result[0]
         except sqlite3.Error as e:
             print(f"查询下载次数最多的用户时发生错误：{e}")
             return "0"
@@ -188,7 +185,7 @@ class DatabaseManager:
                                 """)
                 result = cursor.fetchone()  # 获取一条记录
                 if result is None: return "0"
-                return result
+                return result[0]
         except sqlite3.Error as e:
             print(f"查询下载次数最多的漫画时发生错误：{e}")
             return "0"
@@ -224,29 +221,11 @@ class DatabaseManager:
                 cursor.execute("""
                                 INSERT INTO Downloads (UserId, ComicId, DownloadDate)
                                 VALUES (?, ?, ?)
-                                """, (user_id, comic_id, datetime.now().date()))
+                                """, (user_id, comic_id,datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 conn.commit()
         except sqlite3.Error as e:
             return f"插入下载记录时发生错误：{e}"
 
-    def insert_comic(self, comic_id, comic_name, tags):
-        """
-        向 comics 表中插入一条新记录。
-        Args:
-            comic_id: 车牌号
-            comic_name: 车牌号
-            tags: 车牌号
-        """
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                                INSERT INTO Comics (ComicId, ComicName, DownloadDate, Tags)
-                                VALUES (?, ?, ?)
-                                """, (comic_id, comic_name, datetime.now().date(), tags))
-                conn.commit()
-        except sqlite3.Error as e:
-            return f"插入漫画记录时发生错误：{e}"
 
     def add_comic_download_count(self, comic_id):
         """
@@ -261,7 +240,7 @@ class DatabaseManager:
                                 UPDATE Comics
                                 SET DownloadCount = DownloadCount + 1
                                 WHERE ComicId = ?
-                                """, comic_id)
+                                """, (comic_id,))
                 conn.commit()
         except sqlite3.Error as e:
             return f"更新漫画下载次数时发生错误：{e}"
@@ -280,13 +259,13 @@ class DatabaseManager:
                 cursor.execute("""SELECT COUNT(1)
                                    FROM Downloads
                                    where ComicId = ?
-                                """, comic_id)
+                                """, (comic_id,))
                 result = cursor.fetchone()  # 获取一条记录
-                if result is None: return "0"
+                if result is None: return 0
                 return result
         except sqlite3.Error as e:
             print(f"查询下载次数最多的漫画时发生错误：{e}")
-            return "0"
+            return 0
 
     def get_last_download_user(self, comic_id):
         """
@@ -303,7 +282,7 @@ class DatabaseManager:
                                    FROM Downloads
                                    where ComicId = ?
                                    order by DownloadDate desc LIMIT 1
-                                """, comic_id)
+                                """, (comic_id,))
                 result = cursor.fetchone()  # 获取一条记录
                 if result is None: return "无记录"
                 return result
@@ -327,9 +306,9 @@ class DatabaseManager:
                                    FROM Downloads
                                    where ComicId = ?
                                    order by DownloadDate ASC LIMIT 1
-                                """, comic_id)
+                                """, (comic_id,))
                 result = cursor.fetchone()  # 获取一条记录
-                if result is None: return "无记录"
+                if result is None: return None
                 return result
         except sqlite3.Error as e:
             print(f"获取漫画的最初下载用户时发生错误：{e}")
@@ -342,7 +321,7 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute('''
                     SELECT id, ComicId, ComicName,Tags
-                    FROM Comics WHERE UserId = ?
+                    FROM Comics WHERE ComicId = ?
                 ''', (comic_id,))
                 row = cursor.fetchone()
                 if row:
@@ -361,6 +340,7 @@ class DatabaseManager:
             用户ID，User_Id
         """
         try:
+            logger.info(f"查询标签最常下载的作者ID: {custom_tag}")
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""SELECT UserId FROM (SELECT A.UserId,COUNT(A.ComicId) 
@@ -368,23 +348,27 @@ class DatabaseManager:
                                         LEFT JOIN COMICS B ON A.ComicId = B.ComicId 
                                         WHERE B.TAGS LIKE '%'||?||'%' GROUP BY A.UserId)
                                   ORDER BY DOWNLOAD_COUNT DESC
-                                """, custom_tag)
+                                """, (custom_tag,))
                 result = cursor.fetchone()  # 获取一条记录
+                logger.info(f"获取标签最常下载的作者ID返回结果: {result}")
                 if result is None: return None
-                return result
-        except sqlite3.Error as e:
-            print(f"获取漫画的最初下载用户时发生错误：{e}")
-            return "0"
+                return result[0]
+        except Exception as e:
+            logger.error(f"获取漫画的最初下载用户时发生错误：{e}")
+            return "10000"
 
     def is_comic_exists(self, comic_id):
         try:
+            logger.info(f"查询漫画数据是否存在: {comic_id}")
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""SELECT ComicId From Comics where ComicId=?
-                                """, comic_id)
+                                """, (comic_id,))
                 result = cursor.fetchone()  # 获取一条记录
+                logger.info(f"查询漫画数据返回结果: {result}")
                 if result is None: return False
+                logger.info(f"漫画数据已存在: {comic_id}")
                 return True
-        except sqlite3.Error as e:
-            print(f"获取漫画数据是否存在时发生错误：{e}")
+        except Exception as e:
+            logger.error(f"获取漫画数据是否存在时发生错误：{e}")
             return False
