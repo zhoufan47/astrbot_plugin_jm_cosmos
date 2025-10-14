@@ -193,7 +193,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             return f"更新漫画的是否黑名单标示时发生错误：{e}"
 
-    def insert_download(self, comic_id):
+    def insert_download(self, user_id,comic_id):
         """
         向 download 表中插入一条新记录。
         Args:
@@ -205,7 +205,7 @@ class DatabaseManager:
                 cursor.execute("""
                                 INSERT INTO Downloads (UserId, ComicId, DownloadDate)
                                 VALUES (?, ?, ?)
-                                """, (self.UserId, comic_id, datetime.now().date()))
+                                """, (user_id, comic_id, datetime.now().date()))
                 conn.commit()
         except sqlite3.Error as e:
             return f"插入下载记录时发生错误：{e}"
@@ -332,3 +332,27 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"查询漫画失败: {e}")
             return None
+
+    def get_most_download_user_id_by_tag(self, custom_tag:str):
+        """
+        获取标签最常下载的作者ID
+        Args:
+            custom_tag: 自定义标签
+        Returns:
+            用户ID，User_Id
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""SELECT UserId FROM (SELECT A.UserId,COUNT(A.ComicId) 
+                                        download_count FROM DOWNLOADS A 
+                                        LEFT JOIN COMICS B ON A.ComicId = B.ComicId 
+                                        WHERE B.TAGS LIKE '%'||?||'%' GROUP BY A.UserId)
+                                  ORDER BY DOWNLOAD_COUNT DESC
+                                """, custom_tag)
+                result = cursor.fetchone()  # 获取一条记录
+                if result is None: return None
+                return result
+        except sqlite3.Error as e:
+            print(f"获取漫画的最初下载用户时发生错误：{e}")
+            return "0"

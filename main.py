@@ -1300,6 +1300,10 @@ class JMCosmosPlugin(Star):
             yield event.plain_result(f"漫画[{comic_id}]已加入黑名单，无法下载")
             return
 
+        user = self.db_manager.get_user_by_id(event.get_sender_id())
+        if user is None:
+            self.db_manager.add_user(event.get_sender_id(),event.get_sender_name())
+
         if self.config.debug_mode:
             yield event.plain_result(
                 f"开始下载漫画ID: {comic_id}，请稍候...\n当前配置的最大线程数: {self.config.max_threads}"
@@ -1465,7 +1469,7 @@ class JMCosmosPlugin(Star):
         else:
             yield event.plain_result(f"漫画[{comic_id}]是第一次下载,你发现了新大陆！")
 
-        self.db_manager.insert_download(comic_id)
+        self.db_manager.insert_download(event.get_sender_id(),comic_id)
         self.db_manager.add_comic_download_count(comic_id)
         # 发送PDF
         yield event.plain_result(f" {comic_id} 下载完成，准备发送...")  # 添加发送提示
@@ -2812,6 +2816,120 @@ class JMCosmosPlugin(Star):
         except Exception as e:
             logger.error(f"调试文件夹匹配失败: {str(e)}")
             yield event.plain_result(f"调试失败: {str(e)}")
+
+    @filter.command("jmblack")
+    async def blacklist_function(self, event: AstrMessageEvent):
+        """配置JM漫画下载黑名单
+
+        用法:
+        /jmblack in 漫画ID
+        /jmblack out 漫画ID
+
+        """
+        args = event.message_str.strip().split()
+        if len(args) < 2:
+            yield event.plain_result(
+                "用法:\n/jmblack in [漫画ID] 将漫画移入黑名单 \n "
+                "/jmblack out [漫画ID] 将漫画移出黑名单"
+            )
+            return
+        action = args[1].lower()
+        comic_id = args[2]
+        if not validate_comic_id(comic_id):
+            yield event.plain_result("无效的漫画ID格式，请提供纯数字ID")
+            return
+        if action == "in":
+            # 清理封面缓存
+            if self.db_manager.update_comic_is_backlist(comic_id, '1'):
+                yield event.plain_result(f"成功将漫画 {comic_id} 加入黑名单")
+                return
+        elif action == "out":
+            if self.db_manager.update_comic_is_backlist(comic_id, '0'):
+                yield event.plain_result(f"成功将漫画 {comic_id} 移出黑名单")
+                return
+        else:
+            yield event.plain_result("无效的操作，请使用 in 或 out")
+
+
+    @filter.command("jmstat")
+    async def statistics(self, event: AstrMessageEvent):
+        """查询统计信息
+
+        用法:
+        /jmstat 最多下载用户
+        /jmstat 最多下载漫画
+        /jmstat 妹控
+        /jmstat NTR之王
+        /jmstat 最爱开大车
+        /jmstat 骨科
+        /jmstat 炼铜
+        """
+
+        args = event.message_str.strip().split()
+        if len(args) < 2:
+            yield event.plain_result(
+                "用法:\n/jmstat 最多下载用户\n "
+                "/jmstat 最多下载漫画"
+                "/jmstat 妹控"
+                "/jmstat NTR之王"
+                "/jmstat 最爱开大车"
+                "/jmstat 骨科"
+                "/jmstat 炼铜"
+                "/jmstat 自定义 [自定义TAG]"
+            )
+            return
+        action = args[1].lower()
+        if action == "最多下载用户":
+            logger.info("查询最多下载用户")
+            user_id = self.db_manager.query_most_download_user()
+            user = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，最多下载用户是{user.UserName}[{user.UserId}]");
+        elif action == "最多下载漫画":
+            comic_id = self.db_manager.query_most_download_comic()
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，下载最多次数的漫画是{comic_id}]");
+        elif action == "妹控":
+            user_id = self.db_manager.get_most_download_user_id_by_tag("妹控")
+            if user_id is None:
+                yield event.plain_result(f"哎呀！没有找到【妹控】指数最高的用户");
+                return
+            user = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【妹控】指数最高的用户是{user.UserName}[{user.UserId}]");
+        elif action == "NTR之王":
+            user_id = self.db_manager.get_most_download_user_id_by_tag("NTR")
+            if user_id is None:
+                yield event.plain_result(f"哎呀！没有找到【NTR】指数最高的用户");
+                return
+            user = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【NTR】指数最高的用户是{user.UserName}[{user.UserId}]");
+        elif action == "最爱开大车":
+            user_id = self.db_manager.get_most_download_user_id_by_tag("最爱开大车")
+            if user_id is None:
+                yield event.plain_result(f"哎呀！没有找到【最爱开大车】指数最高的用户");
+                return
+            user = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【最爱开大车】指数最高的用户是{user.UserName}[{user.UserId}]");
+        elif action == "骨科":
+            user_id = self.db_manager.get_most_download_user_id_by_tag("骨科")
+            if user_id is None:
+                yield event.plain_result(f"哎呀！没有找到【骨科】指数最高的用户");
+                return
+            user = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【骨科】指数最高的用户是{user.UserName}[{user.UserId}]");
+        elif action == "炼铜":
+            user_id = self.db_manager.get_most_download_user_id_by_tag("炼铜")
+            if user_id is None:
+                yield event.plain_result(f"哎呀！没有找到【炼铜】指数最高的用户");
+                return
+            user = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【炼铜】指数最高的用户是{user.UserName}[{user.UserId}]");
+        elif action == "自定义":
+            custom_tag = args[2]
+            user_id = self.db_manager.get_most_download_user_id_by_tag(custom_tag)
+            if user_id is None:
+                yield event.plain_result(f"哎呀！没有找到【{custom_tag}】指数最高的用户");
+                return
+            user = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【{custom_tag}】指数最高的用户是{user.UserName}[{user.UserId}]");
 
     async def terminate(self):
         """插件被卸载时清理资源"""
