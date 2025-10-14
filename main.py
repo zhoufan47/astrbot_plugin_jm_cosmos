@@ -1270,6 +1270,8 @@ class JMCosmosPlugin(Star):
             f"📅: {getattr(album, 'pub_date', '未知')}\n"
             f"📃: {total_pages}"
         )
+        if not self.db_manager.is_comic_exists(album_id):
+            self.db_manager.add_comic(album_id, album.title, ','.join(album.tags[:5]))
 
         # 根据配置决定是否发送封面图片
         if self.config.show_cover:
@@ -1310,7 +1312,7 @@ class JMCosmosPlugin(Star):
             )
         else:
             yield event.plain_result(f"开始下载漫画ID: {comic_id}，请稍候...")
-
+        self.get_comic_info(event)
         pdf_path = self.resource_manager.get_pdf_path(comic_id)
         abs_pdf_path = os.path.abspath(pdf_path)
         pdf_name = f"{comic_id}.pdf"

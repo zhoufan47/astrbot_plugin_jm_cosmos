@@ -110,7 +110,28 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"添加用户失败: {e}")
             return False
-    
+
+
+    def add_comic(self, comic_id: str, comic_name: str, tags: str) -> bool:
+        """添加新漫画"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                                INSERT INTO comics (ComicId, ComicName, DownloadCount, Tags)
+                                VALUES (?, ?, ?, ?)
+                                """, (comic_id, comic_name,0, tags)
+                )
+                conn.commit()
+                logger.info(f"漫画 {comic_id} 添加成功")
+                return True
+        except sqlite3.IntegrityError as e:
+            logger.warning(f"漫画 {comic_id} 已存在: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"添加漫画失败: {e}")
+            return False
+
     def get_user_by_id(self, user_id: str) -> Optional[User]:
         """根据ID获取用户"""
         try:
@@ -356,3 +377,16 @@ class DatabaseManager:
         except sqlite3.Error as e:
             print(f"获取漫画的最初下载用户时发生错误：{e}")
             return "0"
+
+    def is_comic_exists(self, comic_id):
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""SELECT ComicId From Comics where ComicId=?
+                                """, comic_id)
+                result = cursor.fetchone()  # 获取一条记录
+                if result is None: return False
+                return True
+        except sqlite3.Error as e:
+            print(f"获取漫画数据是否存在时发生错误：{e}")
+            return False
