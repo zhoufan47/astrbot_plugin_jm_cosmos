@@ -18,6 +18,7 @@ from enum import Enum
 import time
 import concurrent.futures
 from threading import Lock
+from Database.DatabaseManager import DatabaseManager
 
 import jmcomic
 from jmcomic import JmMagicConstants
@@ -177,6 +178,7 @@ class ResourceManager:
     def __init__(self, plugin_name: str):
         # 使用StarTools获取数据目录
         self.base_dir = StarTools.get_data_dir(plugin_name)
+
         # 目录结构
         self.downloads_dir = os.path.join(self.base_dir, "downloads")
         self.pdfs_dir = os.path.join(self.base_dir, "pdfs")
@@ -1011,6 +1013,14 @@ class JMCosmosPlugin(Star):
         self.plugin_name = "jm_cosmos"
         self.base_path = os.path.realpath(os.path.dirname(__file__))
 
+        # 初始化数据库管理器
+        self.db_path = os.path.join(
+            self.context.get_config().get("data_dir", "data"),
+            "db",
+            "jm_cosmos.db"
+        )
+        self.db_manager = DatabaseManager(self.db_path)
+
         # 详细日志记录
         logger.info(f"Cosmos插件初始化，配置参数: {config}")
 
@@ -1439,7 +1449,14 @@ class JMCosmosPlugin(Star):
                 logger.error(f"重命名PDF文件失败: {rename_e}")
                 yield event.plain_result(f"PDF生成后重命名失败: {rename_e}")
                 return
-
+        count = self.db_manager.get_comic_download_count(comic_id)
+        if count > 1:
+            last_download_user = self.db_manager.get_last_download_user(comic_id)
+            first_download_user = self.db_manager.get_first_download_user(comic_id)
+            yield event.plain_result(
+                f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_download_user} ,上一次下载用户是 {last_download_user} ")
+        self.db_manager.insert_download(comic_id)
+        self.db_manager.add_comic_download_count(comic_id)
         # 发送PDF
         yield event.plain_result(f" {comic_id} 下载完成，准备发送...")  # 添加发送提示
         async for result in send_the_file(abs_pdf_path, pdf_name):
