@@ -1,12 +1,10 @@
-# database.py
+# DatabaseManager.py
 import sqlite3
 import os
-import logging
-from typing import Optional, List, Tuple
+from astrbot.api import logger
+from typing import Optional
 from dataclasses import dataclass
 from datetime import datetime
-
-logger = logging.getLogger(__name__)
 
 @dataclass
 class User:

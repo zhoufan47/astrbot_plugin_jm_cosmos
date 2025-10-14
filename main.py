@@ -18,8 +18,7 @@ from enum import Enum
 import time
 import concurrent.futures
 from threading import Lock
-from Database import DatabaseManager
-
+from database.DatabaseManager import DatabaseManager, User
 import jmcomic
 from jmcomic import JmMagicConstants
 
