@@ -2821,38 +2821,53 @@ class JMCosmosPlugin(Star):
             logger.error(f"调试文件夹匹配失败: {str(e)}")
             yield event.plain_result(f"调试失败: {str(e)}")
 
-    @filter.command("jmblack")
-    async def blacklist_function(self, event: AstrMessageEvent):
+    @filter.command("jmblackin")
+    async def blacklist_in_function(self, event: AstrMessageEvent):
         """配置JM漫画下载黑名单
 
         用法:
-        /jmblack in 漫画ID
-        /jmblack out 漫画ID
+        /jmblackin 漫画ID
+        /jmblackout 漫画ID
 
         """
         args = event.message_str.strip().split()
         if len(args) < 2:
             yield event.plain_result(
-                "用法:\n/jmblack in [漫画ID] 将漫画移入黑名单 \n "
-                "/jmblack out [漫画ID] 将漫画移出黑名单"
+                "用法:\n/jmblackin [漫画ID] 将漫画移入黑名单"
             )
             return
-        action = args[1].lower()
-        comic_id = args[2]
+        comic_id = args[1]
         if not validate_comic_id(comic_id):
             yield event.plain_result("无效的漫画ID格式，请提供纯数字ID")
             return
-        if action == "in":
-            # 清理封面缓存
-            if self.db_manager.update_comic_is_backlist(comic_id, '1'):
-                yield event.plain_result(f"成功将漫画 {comic_id} 加入黑名单")
-                return
-        elif action == "out":
-            if self.db_manager.update_comic_is_backlist(comic_id, '0'):
-                yield event.plain_result(f"成功将漫画 {comic_id} 移出黑名单")
-                return
-        else:
-            yield event.plain_result("无效的操作，请使用 in 或 out")
+        self.db_manager.update_comic_is_backlist(comic_id, '1')
+        yield event.plain_result(f"成功将漫画 {comic_id} 移入黑名单")
+
+    @filter.command("jmblackout")
+    async def blacklist_out_function(self, event: AstrMessageEvent):
+        """配置JM漫画下载黑名单
+
+        用法:
+        /jmblackin 漫画ID
+        /jmblackout 漫画ID
+
+        """
+        args = event.message_str.strip().split()
+        if len(args) < 2:
+            yield event.plain_result(
+                "用法:\n/jmblackout [漫画ID] 将漫画移出黑名单"
+                ""
+            )
+            return
+        comic_id = args[1]
+        if not validate_comic_id(comic_id):
+            yield event.plain_result("无效的漫画ID格式，请提供纯数字ID")
+            return
+
+        self.db_manager.update_comic_is_backlist(comic_id, '0')
+        yield event.plain_result(f"成功将漫画 {comic_id} 移出黑名单")
+
+
 
 
     @filter.command("jmstat")

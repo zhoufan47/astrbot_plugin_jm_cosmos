@@ -262,7 +262,7 @@ class DBManager:
                                 """, (comic_id,))
                 result = cursor.fetchone()  # 获取一条记录
                 if result is None: return 0
-                return result
+                return result[0]
         except sqlite3.Error as e:
             print(f"查询下载次数最多的漫画时发生错误：{e}")
             return 0
@@ -285,7 +285,7 @@ class DBManager:
                                 """, (comic_id,))
                 result = cursor.fetchone()  # 获取一条记录
                 if result is None: return "无记录"
-                return result
+                return result[0]
         except sqlite3.Error as e:
             print(f"获取漫画的最后下载用户时发生错误：{e}")
             return "0"
@@ -309,7 +309,7 @@ class DBManager:
                                 """, (comic_id,))
                 result = cursor.fetchone()  # 获取一条记录
                 if result is None: return None
-                return result
+                return result[0]
         except sqlite3.Error as e:
             print(f"获取漫画的最初下载用户时发生错误：{e}")
             return "0"
