@@ -18,7 +18,7 @@ from enum import Enum
 import time
 import concurrent.futures
 from threading import Lock
-from database.DatabaseManager import DatabaseManager, User
+from .database.DatabaseManager import DatabaseManager, User
 import jmcomic
 from jmcomic import JmMagicConstants
 
@@ -1301,8 +1301,8 @@ class JMCosmosPlugin(Star):
             yield event.plain_result(f"漫画[{comic_id}]已加入黑名单，无法下载")
             return
 
-        user = self.db_manager.get_user_by_id(event.get_sender_id())
-        if user is None:
+        User = self.db_manager.get_user_by_id(event.get_sender_id())
+        if User is None:
             self.db_manager.add_user(event.get_sender_id(),event.get_sender_name())
 
         if self.config.debug_mode:
@@ -2883,8 +2883,8 @@ class JMCosmosPlugin(Star):
         if action == "最多下载用户":
             logger.info("查询最多下载用户")
             user_id = self.db_manager.query_most_download_user()
-            user = self.db_manager.get_user_by_id(user_id)
-            yield event.plain_result(f"噔噔噔！⭐️截止今天，最多下载用户是{user.UserName}[{user.UserId}]");
+            User = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，最多下载用户是{User.UserName}[{User.UserId}]");
         elif action == "最多下载漫画":
             comic_id = self.db_manager.query_most_download_comic()
             yield event.plain_result(f"噔噔噔！⭐️截止今天，下载最多次数的漫画是{comic_id}]");
@@ -2893,44 +2893,44 @@ class JMCosmosPlugin(Star):
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【妹控】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
-            yield event.plain_result(f"噔噔噔！⭐️截止今天，【妹控】指数最高的用户是{user.UserName}[{user.UserId}]");
+            User = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【妹控】指数最高的用户是{User.UserName}[{User.UserId}]");
         elif action == "NTR之王":
             user_id = self.db_manager.get_most_download_user_id_by_tag("NTR")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【NTR】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
-            yield event.plain_result(f"噔噔噔！⭐️截止今天，【NTR】指数最高的用户是{user.UserName}[{user.UserId}]");
+            User = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【NTR】指数最高的用户是{User.UserName}[{User.UserId}]");
         elif action == "最爱开大车":
             user_id = self.db_manager.get_most_download_user_id_by_tag("最爱开大车")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【最爱开大车】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
-            yield event.plain_result(f"噔噔噔！⭐️截止今天，【最爱开大车】指数最高的用户是{user.UserName}[{user.UserId}]");
+            User = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【最爱开大车】指数最高的用户是{User.UserName}[{User.UserId}]");
         elif action == "骨科":
             user_id = self.db_manager.get_most_download_user_id_by_tag("骨科")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【骨科】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
-            yield event.plain_result(f"噔噔噔！⭐️截止今天，【骨科】指数最高的用户是{user.UserName}[{user.UserId}]");
+            User = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【骨科】指数最高的用户是{User.UserName}[{User.UserId}]");
         elif action == "炼铜":
             user_id = self.db_manager.get_most_download_user_id_by_tag("炼铜")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【炼铜】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
-            yield event.plain_result(f"噔噔噔！⭐️截止今天，【炼铜】指数最高的用户是{user.UserName}[{user.UserId}]");
+            User = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【炼铜】指数最高的用户是{User.UserName}[{User.UserId}]");
         elif action == "自定义":
             custom_tag = args[2]
             user_id = self.db_manager.get_most_download_user_id_by_tag(custom_tag)
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【{custom_tag}】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
-            yield event.plain_result(f"噔噔噔！⭐️截止今天，【{custom_tag}】指数最高的用户是{user.UserName}[{user.UserId}]");
+            User = self.db_manager.get_user_by_id(user_id)
+            yield event.plain_result(f"噔噔噔！⭐️截止今天，【{custom_tag}】指数最高的用户是{User.UserName}[{User.UserId}]");
 
     async def terminate(self):
         """插件被卸载时清理资源"""
