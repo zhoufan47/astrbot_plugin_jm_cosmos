@@ -18,6 +18,24 @@
         "hint": "登录后的Cookie值，用于获取更多内容",
         "default": ""
     },
+    "jm_username": {
+        "description": "JM用户名",
+        "type": "string",
+        "hint": "用于用户登录",
+        "default": ""
+    },
+    "jm_passwd": {
+        "description": "JM密码",
+        "type": "string",
+        "hint": "用于用户登录",
+        "default": ""
+    },
+    "is_jm_login": {
+        "description": "是否使用账密登录JM",
+        "type": "bool",
+        "hint": "是否使用账密登录JM，否则使用cookies",
+        "default": false
+    },
     "max_threads": {
         "description": "最大下载线程数",
         "type": "int",
