@@ -3004,12 +3004,12 @@ class JMCosmosPlugin(Star):
         else:
             yield event.plain_result(
                 "用法:\n/jmstat 最多下载用户\n "
-                "/jmstat 最多下载漫画"
-                "/jmstat 妹控"
-                "/jmstat NTR之王"
-                "/jmstat 最爱开大车"
-                "/jmstat 骨科"
-                "/jmstat 炼铜"
+                "/jmstat 最多下载漫画\n"
+                "/jmstat 妹控\n"
+                "/jmstat NTR之王\n"
+                "/jmstat 最爱开大车\n"
+                "/jmstat 骨科\n"
+                "/jmstat 炼铜\n"
                 "/jmstat 自定义 [自定义TAG]"
             )
 
