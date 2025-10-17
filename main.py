@@ -1327,7 +1327,7 @@ class JMCosmosPlugin(Star):
             )
         else:
             yield event.plain_result(f"开始下载漫画ID: {comic_id}，请稍候...")
-        self.get_comic_info(event)
+        await self.get_comic_info_no_msg(comic_id)
         pdf_path = self.resource_manager.get_pdf_path(comic_id)
         abs_pdf_path = os.path.abspath(pdf_path)
         pdf_name = f"{comic_id}.pdf"
@@ -1538,6 +1538,38 @@ class JMCosmosPlugin(Star):
             logger.error(f"获取漫画信息失败: {error_msg}")
             self._save_debug_info(f"info_error_{comic_id}", traceback.format_exc())
             yield event.plain_result(f"获取漫画信息失败: {error_msg}")
+
+    async def get_comic_info_no_msg(self, comic_id: str):
+        client = self.client_factory.create_client()
+        try:
+            try:
+                album = client.get_album_detail(comic_id)
+            except Exception as e:
+                error_msg = handle_download_error(e, "获取漫画信息")
+                if "网站结构可能已更改" in error_msg:
+                    # 尝试手动解析
+                    try:
+                        html_content = client._postman.get_html(
+                            f"https://{self.config.domain_list[0]}/album/{comic_id}"
+                        )
+                        self._save_debug_info(f"info_html_{comic_id}", html_content)
+                    except Exception as e:
+                        logger.error(f"获取漫画信息失败: {error_msg},{e}")
+                    return
+                else:
+                    return
+            cover_path = self.resource_manager.get_cover_path(comic_id)
+            if not os.path.exists(cover_path):
+                success, result = await self.downloader.download_cover(comic_id)
+                if not success:
+                    return
+                cover_path = result
+            await self._build_album_message(client, album, comic_id, cover_path)
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"获取漫画信息失败: {error_msg}")
+            self._save_debug_info(f"info_error_{comic_id}", traceback.format_exc())
+
 
     @filter.command("jmrecommend")
     async def recommend_comic(self, event: AstrMessageEvent):
@@ -2867,8 +2899,27 @@ class JMCosmosPlugin(Star):
         self.db_manager.update_comic_is_backlist(comic_id, '0')
         yield event.plain_result(f"成功将漫画 {comic_id} 移出黑名单")
 
-
-
+    @filter.command("jmlogin")
+    async def jm_login(self, event: AstrMessageEvent):
+        """调用client.login登录，并提取cookies保存进设置和打印到控制台"""
+        args = event.message_str.strip().split()
+        if len(args) < 3:
+            yield event.plain_result("请提供账号密码 例如 /jmlogin 账号 密码")
+            return
+        try:
+            client = self.client_factory.create_client()
+            client.login(args[1], args[2])
+            cookies = client.get_cookies()
+            self.config.avs_cookie = cookies
+            if self._update_astrbot_config("avs_cookie", cookies):
+                # 更新客户端工厂选项
+                self.client_factory.update_option()
+                yield event.plain_result(f"登录成功，已保存cookies到设置，当前cookies:{self.config.avs_cookie}")
+            else:
+                yield event.plain_result("保存配置失败，请检查账号密码")
+        except Exception as e:
+            logger.error(f"登录获取cookies失败: {str(e)}")
+            yield event.plain_result(f"登录获取cookies失败: {str(e)}")
 
     @filter.command("jmstat")
     async def statistics(self, event: AstrMessageEvent):
@@ -2907,8 +2958,8 @@ class JMCosmosPlugin(Star):
         elif action == "最多下载漫画":
             comic_id = self.db_manager.query_most_download_comic()
             yield event.plain_result(f"噔噔噔！⭐️截止今天，下载最多次数的漫画是{comic_id}]")
-        elif action == "兄妹":
-            user_id = self.db_manager.get_most_download_user_id_by_tag("妹控")
+        elif action == "妹控":
+            user_id = self.db_manager.get_most_download_user_id_by_tag("兄妹")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【妹控】指数最高的用户");
                 return
@@ -2950,6 +3001,17 @@ class JMCosmosPlugin(Star):
                 return
             User = self.db_manager.get_user_by_id(user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，【{custom_tag}】指数最高的用户是{User.UserName}[{User.UserId}]")
+        else:
+            yield event.plain_result(
+                "用法:\n/jmstat 最多下载用户\n "
+                "/jmstat 最多下载漫画"
+                "/jmstat 妹控"
+                "/jmstat NTR之王"
+                "/jmstat 最爱开大车"
+                "/jmstat 骨科"
+                "/jmstat 炼铜"
+                "/jmstat 自定义 [自定义TAG]"
+            )
 
     async def terminate(self):
         """插件被卸载时清理资源"""
