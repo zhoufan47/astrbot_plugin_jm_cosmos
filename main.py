@@ -12,7 +12,7 @@ import re
 import json
 import traceback
 from datetime import datetime
-from typing import Dict, List, Set, Tuple, Optional, Any
+from typing import Dict, List, Set, Tuple, Optional, Any, Union
 from dataclasses import dataclass
 from enum import Enum
 import time
@@ -21,7 +21,7 @@ from threading import Lock
 from .database import DBManager
 from .database import User,Comic
 import jmcomic
-from jmcomic import JmMagicConstants
+from jmcomic import JmMagicConstants, JmHtmlClient, JmApiClient
 
 
 # 添加自定义解析函数用于处理jmcomic库无法解析的情况
@@ -480,9 +480,15 @@ class JMClientFactory:
         yaml_str = yaml.safe_dump(option_dict, allow_unicode=True)
         return jmcomic.create_option_by_str(yaml_str)
 
-    def create_client(self):
+    def create_client(self,is_jm_login:bool,jm_username:str,jm_passwd:str):
+        client = self.option.new_jm_client()
+        if is_jm_login:
+            client.login(jm_username,jm_passwd)
+            logger.info("已登录")
+        else:
+            logger.warning("未登录")
         """创建JM客户端"""
-        return self.option.new_jm_client()
+        return client
 
     def create_client_with_domain(self, domain: str):
         """创建使用特定域名的JM客户端"""
@@ -532,7 +538,7 @@ class ComicDownloader:
         if hasattr(self, "_thread_pool"):
             self._thread_pool.shutdown(wait=True)
 
-    async def download_cover(self, album_id: str) -> Tuple[bool, str]:
+    async def download_cover(self, album_id: str,client:Union[JmHtmlClient,JmApiClient]) -> Tuple[bool, str]:
         """下载漫画封面"""
         if album_id in self.downloading_covers:
             return False, "封面正在下载中"
@@ -541,9 +547,6 @@ class ComicDownloader:
         try:
             # 记录在对应ID下载封面
             logger.info(f"开始下载漫画封面，ID: {album_id}")
-
-            client = self.client_factory.create_client()
-
             try:
                 album = client.get_album_detail(album_id)
                 if not album:
@@ -626,7 +629,7 @@ class ComicDownloader:
         finally:
             self.downloading_covers.discard(album_id)
 
-    async def download_comic(self, album_id: str) -> Tuple[bool, Optional[str]]:
+    async def download_comic(self, album_id: str,client:Union[JmHtmlClient,JmApiClient]) -> Tuple[bool, Optional[str]]:
         """下载完整漫画"""
         with self._download_lock:
             if album_id in self.downloading_comics:
@@ -656,7 +659,7 @@ class ComicDownloader:
             # 使用线程池执行下载
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
-                self._thread_pool, self._download_with_retry, album_id
+                self._thread_pool, self._download_with_retry, album_id,client
             )
 
             # 在debug模式下记录最终线程数
@@ -694,7 +697,7 @@ class ComicDownloader:
             with self._download_lock:
                 self.downloading_comics.discard(album_id)
 
-    def _download_with_retry(self, album_id: str) -> Tuple[bool, Optional[str]]:
+    def _download_with_retry(self, album_id: str,client:Union[JmHtmlClient,JmApiClient]) -> Tuple[bool, Optional[str]]:
         """带重试功能的下载函数"""
         try:
             # 添加调试信息，显示当前使用的域名
@@ -712,7 +715,6 @@ class ComicDownloader:
 
             # 使用 option 直接下载，避免全局配置干扰
             try:
-                client = self.client_factory.create_client()
                 logger.info(
                     f"创建的客户端域名配置: {self.client_factory.option.client.domain}"
                 )
@@ -870,7 +872,6 @@ class ComicDownloader:
             if "文本没有匹配上字段" in error_msg and "pattern:" in error_msg:
                 try:
                     # 尝试手动解析
-                    client = self.client_factory.create_client()
                     html_content = client._postman.get_html(
                         f"https://{self.config.domain_list[0]}/album/{album_id}"
                     )
@@ -1020,7 +1021,6 @@ class JMCosmosPlugin(Star):
             "jm_cosmos.db"
         )
         self.db_manager = DBManager(self.db_path)
-
         # 详细日志记录
         logger.info(f"Cosmos插件初始化，配置参数: {config}")
 
@@ -1071,6 +1071,13 @@ class JMCosmosPlugin(Star):
 
             # 处理debug_mode，确保是布尔值
             debug_mode = bool(config.get("debug_mode", False))
+
+            # 处理JM用户名和密码
+            self.jm_username = str(config.get("jm_username", ""))
+            self.jm_passwd = str(config.get("jm_passwd", ""))
+
+            # 处理是否登录 布尔值
+            self.is_jm_login = bool(config.get("is_jm_login", False))
 
             # 转换AstrBot配置为CosmosConfig实例
             self.config = CosmosConfig(
@@ -1244,6 +1251,8 @@ class JMCosmosPlugin(Star):
         self.downloader = ComicDownloader(
             self.client_factory, self.resource_manager, self.config
         )
+        # 创建统一客户端，并且进行登录
+        self.client = self.client_factory.create_client(self.is_jm_login,self.jm_username,self.jm_passwd)
 
     def _save_debug_info(self, prefix: str, content: str) -> None:
         """保存调试信息到文件"""
@@ -1327,7 +1336,7 @@ class JMCosmosPlugin(Star):
             )
         else:
             yield event.plain_result(f"开始下载漫画ID: {comic_id}，请稍候...")
-        await self.get_comic_info_no_msg(comic_id)
+        await self.get_comic_info_no_msg(comic_id,self.client)
         pdf_path = self.resource_manager.get_pdf_path(comic_id)
         abs_pdf_path = os.path.abspath(pdf_path)
         pdf_name = f"{comic_id}.pdf"
@@ -1453,7 +1462,7 @@ class JMCosmosPlugin(Star):
 
         # 下载漫画
         # ... (省略下载逻辑) ...
-        success, msg = await self.downloader.download_comic(comic_id)
+        success, msg = await self.downloader.download_comic(comic_id,self.client)
         # ... (省略下载后处理和日志) ...
 
         if not success:
@@ -1498,7 +1507,7 @@ class JMCosmosPlugin(Star):
             yield event.plain_result("无效的漫画ID格式，请提供纯数字ID")
             return
 
-        client = self.client_factory.create_client()
+        client = self.client
 
         try:
             try:
@@ -1524,7 +1533,7 @@ class JMCosmosPlugin(Star):
             cover_path = self.resource_manager.get_cover_path(comic_id)
 
             if not os.path.exists(cover_path):
-                success, result = await self.downloader.download_cover(comic_id)
+                success, result = await self.downloader.download_cover(comic_id,self.client)
                 if not success:
                     yield event.plain_result(f"{album.title}\n封面下载失败: {result}")
                     return
@@ -1539,8 +1548,7 @@ class JMCosmosPlugin(Star):
             self._save_debug_info(f"info_error_{comic_id}", traceback.format_exc())
             yield event.plain_result(f"获取漫画信息失败: {error_msg}")
 
-    async def get_comic_info_no_msg(self, comic_id: str):
-        client = self.client_factory.create_client()
+    async def get_comic_info_no_msg(self, comic_id: str,client:Union[JmHtmlClient,JmApiClient]):
         try:
             try:
                 album = client.get_album_detail(comic_id)
@@ -1560,7 +1568,7 @@ class JMCosmosPlugin(Star):
                     return
             cover_path = self.resource_manager.get_cover_path(comic_id)
             if not os.path.exists(cover_path):
-                success, result = await self.downloader.download_cover(comic_id)
+                success, result = await self.downloader.download_cover(comic_id,self.client)
                 if not success:
                     return
                 cover_path = result
@@ -1577,7 +1585,7 @@ class JMCosmosPlugin(Star):
 
         用法: /jmrecommend
         """
-        client = self.client_factory.create_client()
+        client = self.client
         yield event.plain_result("正在获取推荐漫画，请稍候...")
 
         try:
@@ -1641,7 +1649,7 @@ class JMCosmosPlugin(Star):
 
             # 强制重新下载封面
             yield event.plain_result(f"正在下载封面，ID: {album_id}...")
-            success, result = await self.downloader.download_cover(album_id)
+            success, result = await self.downloader.download_cover(album_id,self.client)
 
             if success:
                 cover_path = result
@@ -1687,7 +1695,7 @@ class JMCosmosPlugin(Star):
             yield event.plain_result("序号必须是数字")
             return
 
-        client = self.client_factory.create_client()
+        client = self.client
         search_query = " ".join(f"+{k}" for k in keywords)
 
         yield event.plain_result(
@@ -1769,7 +1777,7 @@ class JMCosmosPlugin(Star):
             yield event.plain_result(
                 f"搜索结果第{order}条: [{album_id}] {album.title}\n正在下载封面..."
             )
-            success, cover_path = await self.downloader.download_cover(album_id)
+            success, cover_path = await self.downloader.download_cover(album_id,self.client)
             if not success:
                 yield event.plain_result(
                     f"封面下载失败: {cover_path}\n但搜索结果ID是: {album_id}，标题: {album.title}"
@@ -1808,7 +1816,7 @@ class JMCosmosPlugin(Star):
             yield event.plain_result("序号必须是数字")
             return
 
-        client = self.client_factory.create_client()
+        client = self.client
         author_name = " ".join(author_parts)
 
         # 直接使用有效的搜索格式
@@ -1879,7 +1887,7 @@ class JMCosmosPlugin(Star):
                     album = client.get_album_detail(album_id)
                     cover_path = self.resource_manager.get_cover_path(album_id)
                     if not os.path.exists(cover_path):
-                        success, result = await self.downloader.download_cover(album_id)
+                        success, result = await self.downloader.download_cover(album_id,self.client)
                         if not success:
                             yield event.plain_result(f"⚠️ 封面下载失败: {result}")
                             return
@@ -2226,7 +2234,7 @@ class JMCosmosPlugin(Star):
 
         try:
             # 获取JM客户端
-            client = self.client_factory.create_client()
+            client = self.client
             if not client:
                 yield event.plain_result("无法连接到JM网站，请检查网络连接")
                 return
@@ -2330,7 +2338,7 @@ class JMCosmosPlugin(Star):
 
             # 获取漫画信息
             try:
-                client = self.client_factory.create_client()
+                client = self.client
                 album = client.get_album_detail(comic_id)
                 title = album.title
             except Exception:
@@ -2907,16 +2915,9 @@ class JMCosmosPlugin(Star):
             yield event.plain_result("请提供账号密码 例如 /jmlogin 账号 密码")
             return
         try:
-            client = self.client_factory.create_client()
+            client = self.client_factory.create_client(True,args[1],args[2])
             client.login(args[1], args[2])
-            cookies = client.get_cookies()
-            self.config.avs_cookie = cookies
-            if self._update_astrbot_config("avs_cookie", cookies):
-                # 更新客户端工厂选项
-                self.client_factory.update_option()
-                yield event.plain_result(f"登录成功，已保存cookies到设置，当前cookies:{self.config.avs_cookie}")
-            else:
-                yield event.plain_result("保存配置失败，请检查账号密码")
+            yield event.plain_result(f"登录完成，请尝试查询或下载测试登录结果")
         except Exception as e:
             logger.error(f"登录获取cookies失败: {str(e)}")
             yield event.plain_result(f"登录获取cookies失败: {str(e)}")
