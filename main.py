@@ -2911,16 +2911,24 @@ class JMCosmosPlugin(Star):
     async def jm_login(self, event: AstrMessageEvent):
         """调用client.login登录，并提取cookies保存进设置和打印到控制台"""
         args = event.message_str.strip().split()
-        if len(args) < 3:
-            yield event.plain_result("请提供账号密码 例如 /jmlogin 账号 密码")
-            return
-        try:
-            client = self.client_factory.create_client(True,args[1],args[2])
-            client.login(args[1], args[2])
-            yield event.plain_result(f"登录完成，请尝试查询或下载测试登录结果")
-        except Exception as e:
-            logger.error(f"登录获取cookies失败: {str(e)}")
-            yield event.plain_result(f"登录获取cookies失败: {str(e)}")
+        if len(args) >= 3:
+            try:
+                self.client = self.client_factory.create_client(True, args[1], args[2])
+                yield event.plain_result(f"登录完成，请尝试查询或下载测试登录结果")
+            except Exception as e:
+                logger.error(f"登录获取cookies失败: {str(e)}")
+                yield event.plain_result(f"登录获取cookies失败: {str(e)}")
+        else:
+            try:
+                yield event.plain_result("未提供账号密码，使用配置账密进行登录")
+                self.client = self.client_factory.create_client(True, self.jm_username, self.jm_passwd)
+                yield event.plain_result(f"登录完成，请尝试查询或下载测试登录结果")
+            except Exception as e:
+                logger.error(f"登录获取cookies失败: {str(e)}")
+                yield event.plain_result(f"登录获取cookies失败: {str(e)}")
+
+
+
 
     @filter.command("jmstat")
     async def statistics(self, event: AstrMessageEvent):
