@@ -188,8 +188,8 @@ class ResourceManager:
         self.covers_dir = os.path.join(self.base_dir, "covers")
 
         # 存储管理配置
-        self.max_storage_size = 2 * 1024 * 1024 * 1024  # 2GB限制
-        self.max_file_age_days = 30  # 文件保留30天
+        self.max_storage_size = 4 * 1024 * 1024 * 1024  # 2GB限制
+        self.max_file_age_days = 14  # 文件保留30天
 
         # 创建必要的目录
         for dir_path in [
