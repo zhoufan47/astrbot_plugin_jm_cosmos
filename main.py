@@ -1274,11 +1274,7 @@ class JMCosmosPlugin(Star):
             f"📃: {total_pages}"
         )
 
-        # 根据配置决定是否发送封面图片
-        if self.config.show_cover:
-            return [Plain(text=message), Image.fromFileSystem(cover_path)]
-        else:
-            return [Plain(text=message)]
+        return [Plain(text=message)]
 
     @filter.command("jm")
     async def download_comic(self, event: AstrMessageEvent):
@@ -1510,6 +1506,11 @@ class JMCosmosPlugin(Star):
             yield event.chain_result(
                 await self._build_album_message(client, album, comic_id, cover_path)
             )
+            # 根据配置决定是否发送封面图片
+            if self.config.show_cover:
+                yield event.chain_result(
+                    [Image.fromFileSystem(cover_path)]
+                )
         except Exception as e:
             error_msg = str(e)
             logger.error(f"获取漫画信息失败: {error_msg}")
@@ -1602,6 +1603,11 @@ class JMCosmosPlugin(Star):
             yield event.chain_result(
                 await self._build_album_message(client, album, album_id, cover_path)
             )
+            # 根据配置决定是否发送封面图片
+            if self.config.show_cover:
+                yield event.chain_result(
+                    [Image.fromFileSystem(cover_path)]
+                )
 
         except Exception as e:
             error_msg = str(e)
@@ -1726,6 +1732,11 @@ class JMCosmosPlugin(Star):
             yield event.chain_result(
                 await self._build_album_message(client, album, album_id, cover_path)
             )
+            # 根据配置决定是否发送封面图片
+            if self.config.show_cover:
+                yield event.chain_result(
+                    [Image.fromFileSystem(cover_path)]
+                )
         except Exception as e:
             error_msg = str(e)
             logger.error(f"搜索漫画失败: {error_msg}")
