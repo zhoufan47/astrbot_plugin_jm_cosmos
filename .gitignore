@@ -80,4 +80,5 @@ fabric.properties
 .venv/*
 
 #本地测试DB
-./jm_cosmos.db
+/jm_cosmos.db
+/.idea/*
