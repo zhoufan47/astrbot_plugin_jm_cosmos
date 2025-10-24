@@ -78,3 +78,6 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 .venv/*
+
+#本地测试DB
+./jm_cosmos.db
