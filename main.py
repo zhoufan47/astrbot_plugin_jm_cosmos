@@ -471,6 +471,8 @@ class JMClientFactory:
                         "kwargs": {
                             "pdf_dir": self.resource_manager.pdfs_dir,
                             "filename_rule": "Aid",
+                            "encrypt:"
+                               "password":"123"
                         },
                     }
                 ]
