@@ -1454,11 +1454,10 @@ class JMCosmosPlugin(Star):
 
         # ---- 函数主体 ----
         # 检查是否已经下载过
+        # 检验修改这块逻辑，存在之前下载的不完整，需要重新下载的情况
         if os.path.exists(abs_pdf_path):
-            yield event.plain_result("漫画已存在，直接发送...")
-            async for result in send_the_file(abs_pdf_path, pdf_name):
-                yield result
-            return
+            yield event.plain_result("漫画已存在，清理旧文件.")
+            os.remove(abs_pdf_path)
 
         # 下载漫画
         # ... (省略下载逻辑) ...
