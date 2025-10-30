@@ -10,6 +10,7 @@ class Comic:
     ComicName: Optional[str] = None
     DownloadDate: Optional[str] = None
     DownloadCount: Optional[str] = None
+    Tags: Optional[str] = None
     IsBacklist: Optional[str] = None
 
 @dataclass

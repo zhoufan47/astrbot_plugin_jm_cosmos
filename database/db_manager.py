@@ -320,7 +320,7 @@ class DBManager:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    SELECT id, ComicId, ComicName,Tags
+                    SELECT id, ComicId, ComicName,DownlaodDate,DownloadCount,IsBlacklist,Tags
                     FROM Comics WHERE ComicId = ?
                 ''', (comic_id,))
                 row = cursor.fetchone()
