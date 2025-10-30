@@ -1304,8 +1304,10 @@ class JMCosmosPlugin(Star):
             return
 
         comic = self.db_manager.get_comic_by_id(comic_id)
+        logger.info(f"漫画[{comic}]")
+
         logger.info(f"开始下载漫画[{comic_id}]")
-        if comic:
+        if comic is not None:
             logger.info(f"数据库中存在该漫画信息{comic}")
             if comic.IsBacklist == '1':
                 yield event.plain_result(f"漫画[{comic_id}]已加入黑名单，无法下载")

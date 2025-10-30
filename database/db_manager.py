@@ -204,7 +204,7 @@ class DBManager:
                                 UPDATE Comics
                                 SET IsBacklist = ?
                                 WHERE ComicId = ?
-                                """, (comic_id, is_backlist))
+                                """, (is_backlist,comic_id))
                 conn.commit()
         except sqlite3.Error as e:
             return f"更新漫画的是否黑名单标示时发生错误：{e}"
@@ -320,7 +320,7 @@ class DBManager:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    SELECT id, ComicId, ComicName,DownloadDate,DownloadCount,IsBlacklist,Tags
+                    SELECT id, ComicId, ComicName,DownloadDate,DownloadCount,IsBacklist,Tags
                     FROM Comics WHERE ComicId = ?
                 ''', (comic_id,))
                 row = cursor.fetchone()
