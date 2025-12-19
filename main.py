@@ -1021,9 +1021,14 @@ class JMCosmosPlugin(Star):
 
     def __init__(self, context: Context, config=None):
         super().__init__(context)
+        self.client = None
+        self.downloader = None
+        self.client_factory = None
+        self.is_jm_login = None
         self.plugin_name = "jm_cosmos"
         self.base_path = os.path.realpath(os.path.dirname(__file__))
-
+        self.jm_username = None
+        self.jm_passwd = None
         # 初始化数据库管理器
         self.db_path = os.path.join(
             self.context.get_config().get("data_dir", "data"),
@@ -1100,169 +1105,25 @@ class JMCosmosPlugin(Star):
             )
             logger.info("已加载AstrBot配置")
         else:
-            logger.info("没有收到AstrBot配置，尝试从配置文件加载")
+            logger.error(f"未发现配置文件！请检查插件安装是否正确！")
 
-            # 检查是否存在旧的配置文件
-            old_config_path = os.path.join(
-                self.context.get_config().get("data_dir", "data"),
-                "config",
-                f"{self.plugin_name}_config.json",
+
+
+    async def initialize(self):
+        try:
+            time.sleep(2)
+            logger.info("JmCosmos 开始异步初始化……")
+            # 初始化客户端工厂和下载器
+            self.client_factory = JMClientFactory(self.config, self.resource_manager)
+            self.downloader = ComicDownloader(
+                self.client_factory, self.resource_manager, self.config
             )
+            # 创建统一客户端，并且进行登录
+            self.client = self.client_factory.create_client(self.is_jm_login, self.jm_username, self.jm_passwd)
+            logger.info("JmCosmos 异步初始化完成……")
+        except Exception as e:
+            logger.error(f"JmCosmos 异步初始化失败{e}")
 
-            # 如果旧配置文件存在且新配置文件不存在，则进行迁移
-            if os.path.exists(old_config_path) and not os.path.exists(
-                self.astrbot_config_path
-            ):
-                try:
-                    logger.info(f"发现旧配置文件: {old_config_path}，尝试迁移")
-                    # 确保目录存在
-                    os.makedirs(
-                        os.path.dirname(self.astrbot_config_path), exist_ok=True
-                    )
-                    # 复制文件内容
-                    with open(old_config_path, "r", encoding="utf-8") as src:
-                        with open(
-                            self.astrbot_config_path, "w", encoding="utf-8"
-                        ) as dst:
-                            dst.write(src.read())
-                    logger.info(f"已迁移旧配置文件到: {self.astrbot_config_path}")
-                except Exception as e:
-                    logger.error(f"迁移旧配置文件失败: {str(e)}")
-
-            # 尝试从AstrBot配置文件加载
-            if os.path.exists(self.astrbot_config_path):
-                try:
-                    logger.info(
-                        f"尝试从AstrBot配置文件加载: {self.astrbot_config_path}"
-                    )
-                    with open(
-                        self.astrbot_config_path, "r", encoding="utf-8-sig"
-                    ) as f:  # 使用 utf-8-sig
-                        astrbot_config = json.load(f)
-
-                    # 处理domain_list，确保是列表
-                    domain_list = astrbot_config.get(
-                        "domain_list", ["18comic.vip", "jm365.xyz", "18comic.org"]
-                    )
-                    if not isinstance(domain_list, list):
-                        if isinstance(domain_list, str):
-                            domain_list = domain_list.split(",")
-                        else:
-                            domain_list = ["18comic.vip", "jm365.xyz", "18comic.org"]
-
-                    # 处理代理
-                    proxy_value = astrbot_config.get("proxy", "")
-                    proxy = None
-                    if (
-                        proxy_value
-                        and isinstance(proxy_value, str)
-                        and proxy_value.strip()
-                    ):
-                        proxy = proxy_value.strip()
-
-                    # 更新配置
-                    self.config = CosmosConfig(
-                        domain_list=domain_list,
-                        proxy=proxy,
-                        avs_cookie=str(astrbot_config.get("avs_cookie", "")),
-                        max_threads=int(astrbot_config.get("max_threads", 10)),
-                        debug_mode=bool(astrbot_config.get("debug_mode", False)),
-                        show_cover=bool(
-                            astrbot_config.get("show_cover", True)
-                        ),  # 添加 show_cover
-                    )
-                    logger.info("已从AstrBot配置文件加载配置")
-                except Exception as e:
-                    logger.error(f"从AstrBot配置文件加载失败: {str(e)}")
-                    # 使用默认配置
-                    self.config = CosmosConfig(
-                        domain_list=["18comic.vip", "jm365.xyz", "18comic.org"],
-                        proxy=None,
-                        avs_cookie="",
-                        max_threads=10,
-                        debug_mode=False,
-                        show_cover=True,  # 添加 show_cover
-                    )
-                    logger.info("使用默认配置")
-            else:
-                # 尝试从旧配置文件加载
-                if os.path.exists(old_config_path):
-                    try:
-                        logger.info(f"尝试从旧配置文件加载: {old_config_path}")
-                        with open(
-                            old_config_path, "r", encoding="utf-8-sig"
-                        ) as f:  # 使用 utf-8-sig
-                            old_config = json.load(f)
-
-                        # 处理domain_list
-                        domain_list = old_config.get(
-                            "domain_list", ["18comic.vip", "jm365.xyz", "18comic.org"]
-                        )
-                        if not isinstance(domain_list, list):
-                            if isinstance(domain_list, str):
-                                domain_list = domain_list.split(",")
-                            else:
-                                domain_list = [
-                                    "18comic.vip",
-                                    "jm365.xyz",
-                                    "18comic.org",
-                                ]
-
-                        # 处理代理
-                        proxy_value = old_config.get("proxy", "")
-                        proxy = None
-                        if (
-                            proxy_value
-                            and isinstance(proxy_value, str)
-                            and proxy_value.strip()
-                        ):
-                            proxy = proxy_value.strip()
-
-                        # 更新配置
-                        self.config = CosmosConfig(
-                            domain_list=domain_list,
-                            proxy=proxy,
-                            avs_cookie=str(old_config.get("avs_cookie", "")),
-                            max_threads=int(old_config.get("max_threads", 10)),
-                            debug_mode=bool(old_config.get("debug_mode", False)),
-                            show_cover=bool(
-                                old_config.get("show_cover", True)
-                            ),  # 添加 show_cover
-                        )
-
-                        # 在下次使用_update_astrbot_config时会自动迁移
-                        logger.info("已从旧配置文件加载配置，将在下次更新时迁移")
-                    except Exception as e:
-                        logger.error(f"从旧配置文件加载失败: {str(e)}")
-                        # 使用默认配置
-                        self.config = CosmosConfig(
-                            domain_list=["18comic.vip", "jm365.xyz", "18comic.org"],
-                            proxy=None,
-                            avs_cookie="",
-                            max_threads=10,
-                            debug_mode=False,
-                            show_cover=True,  # 添加 show_cover
-                        )
-                        logger.info("使用默认配置")
-                else:
-                    # 使用默认配置
-                    self.config = CosmosConfig(
-                        domain_list=["18comic.vip", "jm365.xyz", "18comic.org"],
-                        proxy=None,
-                        avs_cookie="",
-                        max_threads=10,
-                        debug_mode=False,
-                        show_cover=True,  # 添加 show_cover
-                    )
-                    logger.info("使用默认配置")
-
-        # 初始化客户端工厂和下载器
-        self.client_factory = JMClientFactory(self.config, self.resource_manager)
-        self.downloader = ComicDownloader(
-            self.client_factory, self.resource_manager, self.config
-        )
-        # 创建统一客户端，并且进行登录
-        self.client = self.client_factory.create_client(self.is_jm_login,self.jm_username,self.jm_passwd)
 
     def _save_debug_info(self, prefix: str, content: str) -> None:
         """保存调试信息到文件"""
