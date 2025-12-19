@@ -431,6 +431,8 @@ class JMClientFactory:
         self.resource_manager = resource_manager
         self.option = self._create_option()
 
+
+
     def _create_option(self):
         """创建JM客户端选项"""
         option_dict = {
@@ -1011,6 +1013,9 @@ class JMCosmosPlugin(Star):
 
     def __init__(self, context: Context, config=None):
         super().__init__(context)
+        self.client = None
+        self.downloader = None
+        self.client_factory = None
         self.plugin_name = "jm_cosmos"
         self.base_path = os.path.realpath(os.path.dirname(__file__))
 
@@ -1246,13 +1251,22 @@ class JMCosmosPlugin(Star):
                     )
                     logger.info("使用默认配置")
 
-        # 初始化客户端工厂和下载器
-        self.client_factory = JMClientFactory(self.config, self.resource_manager)
-        self.downloader = ComicDownloader(
-            self.client_factory, self.resource_manager, self.config
-        )
-        # 创建统一客户端，并且进行登录
-        self.client = self.client_factory.create_client(self.is_jm_login,self.jm_username,self.jm_passwd)
+
+
+    async def initialize(self):
+        try:
+            logger.info("JmCosmos 开始异步初始化……")
+            # 初始化客户端工厂和下载器
+            self.client_factory = JMClientFactory(self.config, self.resource_manager)
+            self.downloader = ComicDownloader(
+                self.client_factory, self.resource_manager, self.config
+            )
+            # 创建统一客户端，并且进行登录
+            self.client = self.client_factory.create_client(self.is_jm_login,self.jm_username,self.jm_passwd)
+            logger.info("JmCosmos 异步初始化完成……")
+        except Exception as e:
+            logger.error(f"JmCosmos 异步初始化失败{e}")
+
 
     def _save_debug_info(self, prefix: str, content: str) -> None:
         """保存调试信息到文件"""
