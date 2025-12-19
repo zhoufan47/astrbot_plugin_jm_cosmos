@@ -1,3 +1,4 @@
+import opencc
 from astrbot.api.message_components import Image, Plain
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register, StarTools
@@ -12,7 +13,7 @@ import re
 import json
 import traceback
 from datetime import datetime
-from typing import Dict, List, Set, Tuple, Optional, Any, Union
+from typing import Dict, List, Set, Tuple, Optional, Any, Union, Coroutine
 from dataclasses import dataclass
 from enum import Enum
 import time
@@ -20,8 +21,9 @@ import concurrent.futures
 from threading import Lock
 from .database import DBManager
 from .database import User,Comic
+from .thirdpartyapi import discordPoster
 import jmcomic
-from jmcomic import JmMagicConstants, JmHtmlClient, JmApiClient
+from jmcomic import JmMagicConstants, JmHtmlClient, JmApiClient, JmAlbumDetail
 
 
 # 添加自定义解析函数用于处理jmcomic库无法解析的情况
@@ -188,7 +190,7 @@ class ResourceManager:
         self.covers_dir = os.path.join(self.base_dir, "covers")
 
         # 存储管理配置
-        self.max_storage_size = 2 * 1024 * 1024 * 1024  # 2GB限制
+        self.max_storage_size = 8 * 1024 * 1024 * 1024  # 2GB限制
         self.max_file_age_days = 30  # 文件保留30天
 
         # 创建必要的目录
@@ -431,8 +433,6 @@ class JMClientFactory:
         self.resource_manager = resource_manager
         self.option = self._create_option()
 
-
-
     def _create_option(self):
         """创建JM客户端选项"""
         option_dict = {
@@ -474,6 +474,9 @@ class JMClientFactory:
                         "kwargs": {
                             "pdf_dir": self.resource_manager.pdfs_dir,
                             "filename_rule": "Aid",
+                            "encrypt":{
+                                "password": "123"
+                            }
                         },
                     }
                 ]
@@ -1001,6 +1004,11 @@ class ComicDownloader:
             return False, f"预览下载失败: {str(e)}", []
 
 
+def convert_traditional_to_simplified(text):
+    converter = opencc.OpenCC('t2s.json')
+    return converter.convert(text)
+
+
 @register(
     "jm_cosmos",
     "GEMILUXVII",
@@ -1013,9 +1021,6 @@ class JMCosmosPlugin(Star):
 
     def __init__(self, context: Context, config=None):
         super().__init__(context)
-        self.client = None
-        self.downloader = None
-        self.client_factory = None
         self.plugin_name = "jm_cosmos"
         self.base_path = os.path.realpath(os.path.dirname(__file__))
 
@@ -1251,22 +1256,13 @@ class JMCosmosPlugin(Star):
                     )
                     logger.info("使用默认配置")
 
-
-
-    async def initialize(self):
-        try:
-            logger.info("JmCosmos 开始异步初始化……")
-            # 初始化客户端工厂和下载器
-            self.client_factory = JMClientFactory(self.config, self.resource_manager)
-            self.downloader = ComicDownloader(
-                self.client_factory, self.resource_manager, self.config
-            )
-            # 创建统一客户端，并且进行登录
-            self.client = self.client_factory.create_client(self.is_jm_login,self.jm_username,self.jm_passwd)
-            logger.info("JmCosmos 异步初始化完成……")
-        except Exception as e:
-            logger.error(f"JmCosmos 异步初始化失败{e}")
-
+        # 初始化客户端工厂和下载器
+        self.client_factory = JMClientFactory(self.config, self.resource_manager)
+        self.downloader = ComicDownloader(
+            self.client_factory, self.resource_manager, self.config
+        )
+        # 创建统一客户端，并且进行登录
+        self.client = self.client_factory.create_client(self.is_jm_login,self.jm_username,self.jm_passwd)
 
     def _save_debug_info(self, prefix: str, content: str) -> None:
         """保存调试信息到文件"""
@@ -1351,11 +1347,22 @@ class JMCosmosPlugin(Star):
             )
         else:
             yield event.plain_result(f"开始下载漫画ID: {comic_id}，请稍候...")
-        await self.get_comic_info_no_msg(comic_id,self.client)
+        album, cover_path = await self.get_comic_info_no_msg(comic_id,self.client)
+        tags_sc = []
+        for t in album.tags:
+            tags_sc.append(convert_traditional_to_simplified(t))
+
+        album.tags=tags_sc
+        
+        album_message = (
+            f"📖: {album.title}\n"
+            f"🆔: {comic_id}\n"
+            f"🏷️: {', '.join(album.tags[:5])}\n"
+            f"📅: {getattr(album, 'pub_date', '未知')}\n"
+        )
         pdf_path = self.resource_manager.get_pdf_path(comic_id)
         abs_pdf_path = os.path.abspath(pdf_path)
         pdf_name = f"{comic_id}.pdf"
-
         async def send_the_file(file_path, file_name):
             try:
                 # 获取文件大小
@@ -1500,6 +1507,15 @@ class JMCosmosPlugin(Star):
                 return
         # 发送PDF
         yield event.plain_result(f" {comic_id} 下载完成，准备发送...")  # 添加发送提示
+        logger.info(f"albuminfo 获取成功 {album}")
+        await discordPoster.post_to_discord(
+            comic_id,
+            f"{album.album_id}-{album.title}",
+            album_message,
+            album.tags,
+            cover_path,
+            abs_pdf_path
+        )
         async for result in send_the_file(abs_pdf_path, pdf_name):
             yield result
 
@@ -1567,7 +1583,8 @@ class JMCosmosPlugin(Star):
             self._save_debug_info(f"info_error_{comic_id}", traceback.format_exc())
             yield event.plain_result(f"获取漫画信息失败: {error_msg}")
 
-    async def get_comic_info_no_msg(self, comic_id: str,client:Union[JmHtmlClient,JmApiClient]):
+    async def get_comic_info_no_msg(self, comic_id: str,client:Union[JmHtmlClient,JmApiClient])-> tuple[
+                                                                                                      JmAlbumDetail, str] | None:
         try:
             try:
                 album = client.get_album_detail(comic_id)
@@ -1582,16 +1599,17 @@ class JMCosmosPlugin(Star):
                         self._save_debug_info(f"info_html_{comic_id}", html_content)
                     except Exception as e:
                         logger.error(f"获取漫画信息失败: {error_msg},{e}")
-                    return
+                    return None
                 else:
-                    return
+                    return None
             cover_path = self.resource_manager.get_cover_path(comic_id)
             if not os.path.exists(cover_path):
                 success, result = await self.downloader.download_cover(comic_id,self.client)
                 if not success:
-                    return
+                    return None
                 cover_path = result
             await self._build_album_message(client, album, comic_id, cover_path)
+            return album, cover_path
         except Exception as e:
             error_msg = str(e)
             logger.error(f"获取漫画信息失败: {error_msg}")
