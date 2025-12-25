@@ -16,7 +16,7 @@ from .database import DBManager
 from .thirdpartyapi import discordPoster
 
 
-@register("jm_cosmos", "GEMILUXVII", "全能型JM漫画下载与管理工具", "1.1.0",
+@register("jm_cosmos", "GEMILUXVII,zhoufan47", "全能型JM漫画下载与管理工具", "1.1.0",
           "https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos")
 class JMCosmosPlugin(Star):
     def __init__(self, context: Context, config: dict = None):
@@ -148,23 +148,3 @@ class JMCosmosPlugin(Star):
         for path in paths:
             yield event.image_result(path)
             await asyncio.sleep(0.5)  # 避免刷屏
-
-    @filter.command("jmconfig")
-    async def cmd_config(self, event: AstrMessageEvent, key: str = None, val: str = None):
-        """简单配置管理"""
-        if not key:
-            yield event.plain_result(f"当前配置:\nDomain: {self.cfg.domain_list}\nProxy: {self.cfg.proxy}")
-            return
-
-        # 实现简单的配置修改逻辑
-        if key == "proxy":
-            self.cfg.proxy = val if val != "clear" else None
-        elif key == "domain":
-            if val not in self.cfg.domain_list:
-                self.cfg.domain_list.insert(0, val)
-
-        # 保存并更新服务
-        self.cfg.save(
-            os.path.join(self.context.get_data_dir(), "config", f"astrbot_plugin_{self.plugin_name}_config.json"))
-        self.service.update_client_config()
-        yield event.plain_result("配置已更新")
