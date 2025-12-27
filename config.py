@@ -1,38 +1,24 @@
 from typing import List, Optional
-from pydantic import BaseModel
-import os
-import json
-from astrbot.api import logger
+from pydantic import BaseModel, Field
 
 
-class CosmosConfig(BaseModel):
-    domain_list: List[str] = ["18comic.vip", "jm365.xyz", "18comic.org"]
+class PluginConfig(BaseModel):
+    domain_list: List[str] = Field(
+        default=["18comic.vip", "jm365.xyz", "18comic.org"],
+        description="JMComic 域名列表"
+    )
     proxy: Optional[str] = None
     avs_cookie: str = ""
-    max_threads: int = 10
+    max_threads: int = Field(default=10, ge=1, le=50)
     debug_mode: bool = False
     show_cover: bool = True
-    jm_username: str = ""
-    jm_passwd: str = ""
+    jm_username: Optional[str] = None
+    jm_passwd: Optional[str] = None
     is_jm_login: bool = False
 
+    # 自动处理字符串列表转换 (为了兼容 AstrBot 有时传回逗号分隔字符串的情况)
     @classmethod
-    def load(cls, path: str) -> "CosmosConfig":
-        """加载配置，如果失败则返回默认配置"""
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8-sig") as f:
-                    return cls.parse_obj(json.load(f))
-            except Exception as e:
-                logger.error(f"[JMCosmos] 加载配置失败: {e}，使用默认配置")
-        return cls()
-
-    def save(self, path: str):
-        """保存配置到文件"""
-        try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8-sig") as f:
-                f.write(self.json(indent=2, ensure_ascii=False))
-            logger.info(f"[JMCosmos] 配置已保存至 {path}")
-        except Exception as e:
-            logger.error(f"[JMCosmos] 保存配置失败: {e}")
+    def from_dict(cls, data: dict):
+        if "domain_list" in data and isinstance(data["domain_list"], str):
+            data["domain_list"] = [d.strip() for d in data["domain_list"].split(",") if d.strip()]
+        return cls(**data)
