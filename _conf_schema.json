@@ -53,5 +53,17 @@
         "type": "bool",
         "hint": "启用调试模式后会保存更多日志信息，帮助排查问题",
         "default": false
+    },
+      "is_discord_post": {
+        "description": "是否转发discord",
+        "type": "bool",
+        "hint": "需要搭配DiscordPoster工具使用",
+        "default": false
+    },
+      "discord_poster_api_url": {
+        "description": "DiscordPoster工具API",
+        "type": "string",
+        "hint": "DiscordPoster工具API的地址",
+        "default": ""
     }
 } 

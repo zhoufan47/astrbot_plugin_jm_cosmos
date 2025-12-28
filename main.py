@@ -114,8 +114,8 @@ class JMCosmosPlugin(Star):
             return
 
         components = [Plain(info.to_display_string())]
-
         if self.cfg.show_cover and cover_path:
+            logger.info(f"已获取漫画的封面 [{cover_path}] 的信息")
             components.append(Image.fromFileSystem(cover_path))
 
         yield event.chain_result(components)
@@ -267,3 +267,49 @@ class JMCosmosPlugin(Star):
                 "/jmstat 炼铜\n"
                 "/jmstat 自定义 [自定义TAG]"
             )
+
+    @filter.command("jmauthor")
+    async def cmd_author(self, event: AstrMessageEvent):
+        """搜索作者作品: /jmauthor [作者名] [数量]"""
+        parts = event.message_str.strip().split()
+        if len(parts) < 3:
+            yield event.plain_result("用法: /jmauthor [作者名] [数量]\n例如: /jmauthor 水龙敬 5")
+            return
+
+        # 解析参数：因为作者名中间可能有空格，取中间部分为作者名，最后一部分为数量
+        try:
+            order = int(parts[-1])
+            author_name = " ".join(parts[1:-1])
+        except ValueError:
+            yield event.plain_result("❌ 数量必须是数字。")
+            return
+
+        if order < 1: order = 1
+
+        yield event.plain_result(f"🔍 正在搜索作者 '{author_name}' 的前 {order} 部作品...")
+
+        # 调用 Provider 获取列表
+        total, results = self.service.provider.search_author_works(author_name, order)
+
+        if total == 0:
+            yield event.plain_result(f"❌ 未找到作者 '{author_name}' 的作品。")
+            return
+
+        # 逻辑：如果只请求 1 部，显示详细图文信息
+        if order == 1 and results:
+            comic_id = results[0][0]
+            # 复用 Service 的获取详情逻辑
+            info, cover_path = await self.service.get_comic_info(comic_id)
+            if info:
+                components = [Plain(f"🎨 作者 {author_name} 的最新作品:\n\n" + info.to_display_string())]
+                if self.cfg.show_cover and cover_path:
+                    components.append(Image.fromFileSystem(cover_path))
+                yield event.chain_result(components)
+                return
+
+        # 逻辑：如果请求多部，显示列表
+        msg_lines = [f"🎨 作者 {author_name} 共有 {total} 部作品 (显示前 {len(results)} 部):"]
+        for i, (cid, title) in enumerate(results):
+            msg_lines.append(f"{i + 1}. 🆔{cid}: {title}")
+
+        yield event.plain_result("\n".join(msg_lines))

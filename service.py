@@ -31,21 +31,23 @@ class JMCosmosService:
         # 1. 获取详情
         info = self.provider.get_comic_detail(comic_id)
         if not info:
-            return None, None
+            return None,None
 
         # 2. 简繁转换
         info.title = self.convert_text(info.title)
         info.tags = [self.convert_text(t) for t in info.tags]
 
         # 3. 尝试下载封面
-        cover_path = self.provider.download_cover(comic_id)
+        logger.info(f"正在下载漫画封面: {comic_id}")
+        has_cover,cover_path = self.provider.download_cover(comic_id)
         info.cover_path = cover_path
 
         # 4. 入库 (业务逻辑的一部分)
         if not self.db.is_comic_exists(comic_id):
             self.db.add_comic(comic_id, info.title, ','.join(info.tags))
-
-        return info, cover_path
+        if not has_cover:
+            cover_path = None
+        return info,cover_path
 
     async def download_comic(self, comic_id: str, user_id: str, user_name: str) -> str:
         """处理完整的下载业务流程"""
