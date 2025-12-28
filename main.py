@@ -69,6 +69,7 @@ class JMCosmosPlugin(Star):
         # 如果成功，尝试发送文件
         if "✅" in result_msg:
             pdf_path = self.service.get_pdf_file(comic_id)
+            logger.info(f"已生成文件 [{pdf_path}]")
             # 2. 获取漫画详情 (用于 Discord 推送信息)
             info, cover_path = await self.service.get_comic_info(comic_id)
 

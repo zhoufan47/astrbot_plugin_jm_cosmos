@@ -29,34 +29,47 @@ class JMProvider:
         self._active_downloads = set()
 
         # 初始化 jmcomic 配置
-        self._init_option()
+        self.option = self._init_option()
 
     def _init_option(self):
+        pdf_dir=self.storage.dirs.get("pdfs")
+        download_dir=self.storage.dirs.get("downloads")
         """配置 jmcomic 的 Option"""
         # 构建配置字典 (简化原代码的构建过程)
         option_dict = {
             "client": {
+                "impl": "html",
                 "domain": self.config.domain_list,
+                "retry_times": 5,
                 "postman": {
                     "meta_data": {
                         "proxies": {"https": self.config.proxy} if self.config.proxy else None,
-                        "cookies": {"AVS": self.config.avs_cookie} if self.config.avs_cookie else None,
                         "headers": {
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-                        }
+                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                            "Referer": f"https://{self.config.domain_list[0]}/",
+                            "Connection": "keep-alive",
+                            "Cache-Control": "max-age=0",
+                        },
                     }
                 }
             },
-            "dir_rule": {"base_dir": self.storage.dirs["downloads"]},
+            "dir_rule": {"base_dir": download_dir},
             "download": {
-                "threading": {"image": self.config.max_threads}
+                "cache": True,
+                "image": {"decode": True, "suffix": ".jpg"},
+                "threading": {
+                    "image": self.config.max_threads,
+                    "photo": self.config.max_threads,
+                },
             },
             # 配置插件：下载完自动转PDF
             "plugins": {
                 "after_album": [{
                     "plugin": "img2pdf",
                     "kwargs": {
-                        "pdf_dir": self.storage.dirs["pdfs"],
+                        "pdf_dir": pdf_dir,
                         "filename_rule": "Aid",
                         # 如果需要加密 PDF 可以在这里加
                         "encrypt": {
@@ -66,15 +79,18 @@ class JMProvider:
                 }]
             }
         }
-
+        logger.info(f"download存储目录: {download_dir}")
+        logger.info(f"pdf存储目录: {pdf_dir}")
+        yaml_str = yaml.safe_dump(option_dict, allow_unicode=True)
         # 应用配置
-        jmcomic.create_option_by_str(yaml.safe_dump(option_dict))
+        return jmcomic.create_option_by_str(yaml_str)
+
 
     def login(self) -> bool:
         """执行登录"""
         try:
             # 这里的 client 创建逻辑可以根据需要优化，比如支持特定 domain
-            self.client = jmcomic.JmOption.default().new_jm_client()
+            self.client = self.option.new_jm_client()
             if self.config.is_jm_login and self.config.jm_username and self.config.jm_passwd:
                 logger.info(f"JMComic 登录尝试: {self.config.jm_username},{self.config.jm_passwd}")
                 self.client.login(self.config.jm_username, self.config.jm_passwd)
@@ -164,7 +180,7 @@ class JMProvider:
         """同步下载逻辑 (运行在线程池中)"""
         # 这里放置复杂的重试、多域名切换逻辑
         # 简化版：直接调用库
-        jmcomic.download_album(comic_id, jmcomic.JmOption.default())
+        jmcomic.download_album(comic_id, self.option)
 
     def search_site(self, query: str, page: int = 1) -> List[Tuple[str, str]]:
         """搜索"""
