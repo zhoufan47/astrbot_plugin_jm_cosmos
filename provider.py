@@ -68,6 +68,7 @@ class JMProvider:
                 "postman": {
                     "meta_data": {
                         "proxies": {"https": self.config.proxy} if self.config.proxy else None,
+                        "cookies": {"AVS": self.config.avs_cookie},
                         "headers": {
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
                             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -113,8 +114,8 @@ class JMProvider:
     def login(self) -> bool:
         """执行登录"""
         try:
-            # 这里的 client 创建逻辑可以根据需要优化，比如支持特定 domain
-            self.client = self.option.new_jm_client()
+            if not self.client:
+                self.client = self.option.new_jm_client()
             if self.config.is_jm_login and self.config.jm_username and self.config.jm_passwd:
                 logger.info(f"JMComic 登录尝试: {self.config.jm_username},{self.config.jm_passwd}")
                 self.client.login(self.config.jm_username, self.config.jm_passwd)
@@ -282,7 +283,6 @@ class JMProvider:
 
     def _download_sync(self, comic_id: str):
         """同步下载逻辑 (运行在线程池中)"""
-        # 这里放置复杂的重试、多域名切换逻辑
         # 简化版：直接调用库
         jmcomic.download_album(comic_id, self.option)
 
