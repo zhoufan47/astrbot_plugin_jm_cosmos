@@ -113,11 +113,11 @@ class JMCosmosPlugin(Star):
             yield event.plain_result(f"❌ 无法获取漫画 [{comic_id}] 的信息")
             return
 
-        components = [Plain(info.to_display_string())]
+        components = []
+        yield event.plain_result(info.to_display_string())
         if self.cfg.show_cover and cover_path:
             logger.info(f"已获取漫画的封面 [{cover_path}] 的信息")
             components.append(Image.fromFileSystem(cover_path))
-
         yield event.chain_result(components)
 
     @filter.command("jmsearch")
