@@ -14,10 +14,10 @@ from .service import JMCosmosService
 
 @register(
     "jm_cosmos",
-    "GEMILUXVII",
+    "zhoufan47",
     "全能型JM漫画下载与管理工具 (Refactored)",
-    "2.0.0",
-    "https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos",
+    "1.9.4",
+    "https://github.com/zhoufan47/astrbot_plugin_jm_cosmos",
 )
 class JMCosmosPlugin(Star):
     def __init__(self, context: Context, config: dict):
