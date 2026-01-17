@@ -83,7 +83,7 @@ class JMCosmosPlugin(Star):
                     await discordPoster.post_to_discord(
                         comic_id,
                         f"{info.id}-{info.title}",
-                        info_msg_components,
+                        info.to_display_string(),
                         info.tags,
                         cover_path if cover_path else "",  # 确保不传 None
                         pdf_path

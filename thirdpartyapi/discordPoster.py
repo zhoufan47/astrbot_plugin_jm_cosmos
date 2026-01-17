@@ -1,5 +1,6 @@
 import aiohttp
 from astrbot.api import logger
+import traceback
 
 async def post_to_discord(comic_id,comic_title,comic_info, tags,cover_path, pdf_path):
     # ==================== 新增 API 推送逻辑 ====================
@@ -20,12 +21,14 @@ async def post_to_discord(comic_id,comic_title,comic_info, tags,cover_path, pdf_
                 pdf_path
             ]
         }
-
+        logger.info(f"请求体: {payload}")
         # 4. 异步发送请求
         async with aiohttp.ClientSession() as session:
             # 设置超时，防止 API 无响应卡住插件
             timeout = aiohttp.ClientTimeout(total=10)
+            logger.info(f"异步发送请求到 API: {api_url}")
             async with session.post(api_url, json=payload, timeout=timeout) as response:
+                logger.info(f"等待响应……")
                 resp_text = await response.text()
                 if response.status == 200:
                     logger.info(f"✅ API 推送成功: {resp_text}")
@@ -35,6 +38,7 @@ async def post_to_discord(comic_id,comic_title,comic_info, tags,cover_path, pdf_
                     logger.error(f"❌ API 推送失败 [Status {response.status}]: {resp_text}")
 
     except Exception as api_e:
-        logger.error(f"❌ API 推送过程中发生错误: {str(api_e)}")
+        logger.error(traceback.format_exc())
+        logger.error(f"❌ API 推送过程中发生错误: {api_e}")
         # 这里 catch 所有异常，确保 API 报错不会影响给用户发文件
     # ==================== API 推送逻辑结束 ====================
