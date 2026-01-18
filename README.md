@@ -21,6 +21,7 @@
 
 ![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=zhoufan47.astrbot_plugin_jm_cosmos)
 </div>
+
 ## ◎ 介绍
 
 JM-Cosmos 是一个基于 AstrBot 开发的 JM 漫画下载插件，支持漫画搜索、预览、下载、PDF 转换与 QQ 发送
