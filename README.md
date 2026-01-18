@@ -4,6 +4,7 @@
 
 <br>
 <div align="center">
+
   <a href="#更新日志"><img src="https://img.shields.io/badge/VERSION-v1.1.0-E91E63?style=for-the-badge" alt="Version"></a>
   <a href="https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-009688?style=for-the-badge" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/PYTHON-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
@@ -16,6 +17,10 @@
   <a href="https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos"><img src="https://img.shields.io/badge/UPDATED-2025.09.20-2196F3?style=for-the-badge" alt="Updated"></a>
 </div>
 
+<div align="center">
+
+![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=zhoufan47.astrbot_plugin_jm_cosmos)
+</div>
 ## ◎ 介绍
 
 JM-Cosmos 是一个基于 AstrBot 开发的 JM 漫画下载插件，支持漫画搜索、预览、下载、PDF 转换与 QQ 发送
