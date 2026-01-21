@@ -247,7 +247,7 @@ class JMProvider:
             if "文本没有匹配上字段" in error_msg:
                 return (
                     False,
-                    "封面下载失败: 网站结构可能已更改，请更新jmcomic库或使用/jmdomain更新域名",
+                    "封面下载失败: 网站结构可能已更改，请更新jmcomic库",
                 )
 
             return False, f"封面下载失败: {error_msg}"

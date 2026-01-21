@@ -2,8 +2,8 @@
     "domain_list": {
         "description": "禁漫镜像站域名列表",
         "type": "list",
-        "hint": "可访问的禁漫镜像站域名，不需要添加http或https前缀",
-        "default": ["18comic.vip", "jm365.xyz", "18comic.org"]
+        "hint": "可访问的禁漫镜像站域名，不需要添加http或https前缀，默认参数jmcomic-zzz.one，建议不要修改",
+        "default": ["jmcomic-zzz.one"]
     },
     "proxy": {
         "description": "代理服务器",
