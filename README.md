@@ -25,7 +25,7 @@
 ## ◎ 介绍
 
 JM-Cosmos 是一个基于 AstrBot 开发的 JM 漫画下载插件，支持漫画搜索、预览、下载、PDF 转换与 QQ 发送
-本仓库以[GEMILUXVII()](https://github.com/GEMILUXVII)的[JM-Cosmos](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos)项目的1.1.0版本为基础进行了优化和客制化修改
+本仓库以[GEMILUXVII](https://github.com/GEMILUXVII)的[JM-Cosmos](https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos)项目的1.1.0版本为基础进行了优化和客制化修改
 
 ## ◎ 功能特性
 
