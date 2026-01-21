@@ -98,7 +98,7 @@ class JMProvider:
                         "filename_rule": "Aid",
                         # 如果需要加密 PDF 可以在这里加
                         "encrypt": {
-                            "password": "123"
+                            "password": self.config.pdf_password
                         }
                     }
                 }]

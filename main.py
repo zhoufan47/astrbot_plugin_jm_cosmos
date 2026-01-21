@@ -37,7 +37,7 @@ class JMCosmosPlugin(Star):
 
     async def initialize(self):
         try:
-            time.sleep(2)
+            await asyncio.to_thread(time.sleep, 2)
             self.service = await asyncio.to_thread(JMCosmosService, self.cfg, "jm_cosmos", self.db_path)
             logger.info("JmCosmos 异步初始化完成……")
         except Exception as e:
@@ -68,7 +68,7 @@ class JMCosmosPlugin(Star):
 
         # 如果成功，尝试发送文件
         if "✅" in result_msg:
-            pdf_path = self.service.get_pdf_file(comic_id)
+            pdf_path = await self.service.get_pdf_file(comic_id)
             logger.info(f"已生成文件 [{pdf_path}]")
             # 2. 获取漫画详情 (用于 Discord 推送信息)
             info, cover_path = await self.service.get_comic_info(comic_id)
@@ -92,7 +92,7 @@ class JMCosmosPlugin(Star):
                 except Exception as e:
                     logger.error(f"推送到 Discord 失败: {e}")
             if pdf_path:
-                file_size_mb = os.path.getsize(pdf_path) / (1024 * 1024)
+                file_size_mb = await asyncio.to_thread(os.path.getsize, pdf_path) / (1024 * 1024)
                 if file_size_mb > 90:
                     yield event.plain_result(f"⚠️ 文件较大 ({file_size_mb:.2f}MB)，可能发送失败。")
 
@@ -128,8 +128,8 @@ class JMCosmosPlugin(Star):
             return
 
         query = args[1]
-        # 直接调用 Provider 的搜索 (或者封装在 Service 中)
-        results = self.service.provider.search_site(query)
+        # 直接调用 Provider 的搜索 (或者封装在 Service 中) - 使用 asyncio.to_thread 包装同步操作
+        results = await asyncio.to_thread(self.service.provider.search_site, query)
 
         if not results:
             yield event.plain_result("未找到相关结果。")
@@ -168,7 +168,7 @@ class JMCosmosPlugin(Star):
         try:
             # 调用 Service 层持有的 Provider 进行登录
             # Provider.login() 方法会读取 self.cfg 中的最新凭证
-            if self.service.provider.login():
+            if await asyncio.to_thread(self.service.provider.login):
                 yield event.plain_result(f"✅ 登录成功！Cookies 已更新。")
             else:
                 yield event.plain_result(f"❌ 登录失败，请检查账号密码或网络连通性。")
@@ -194,67 +194,67 @@ class JMCosmosPlugin(Star):
         if len(args) < 2:
             yield event.plain_result(
                 "用法:\n/jmstat 最多下载用户\n "
-                "/jmstat 最多下载漫画"
-                "/jmstat 妹控"
-                "/jmstat NTR之王"
-                "/jmstat 最爱开大车"
-                "/jmstat 骨科"
-                "/jmstat 炼铜"
+                "/jmstat 最多下载漫画\n"
+                "/jmstat 妹控\n"
+                "/jmstat NTR之王\n"
+                "/jmstat 最爱开大车\n"
+                "/jmstat 骨科\n"
+                "/jmstat 炼铜\n"
                 "/jmstat 自定义 [自定义TAG]"
             )
             return
         action = args[1].lower()
         if action == "最多下载用户":
             logger.info("查询最多下载用户")
-            user_id = self.db_manager.query_most_download_user()
+            user_id = await asyncio.to_thread(self.service.db.query_most_download_user)
             logger.info(f"查询到用户ID: {user_id}")
-            user = self.db_manager.get_user_by_id(user_id)
+            user = await asyncio.to_thread(self.service.db.get_user_by_id, user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，最多下载用户是{user.UserName}[{user.UserId}]")
         elif action == "最多下载漫画":
-            comic_id = self.db_manager.query_most_download_comic()
+            comic_id = await asyncio.to_thread(self.service.db.query_most_download_comic)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，下载最多次数的漫画是{comic_id}]")
         elif action == "妹控":
-            user_id = self.db_manager.get_most_download_user_id_by_tag("兄妹")
+            user_id = await asyncio.to_thread(self.service.db.get_most_download_user_id_by_tag, "兄妹")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【妹控】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
+            user = await asyncio.to_thread(self.service.db.get_user_by_id, user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，【妹控】指数最高的用户是{user.UserName}[{user.UserId}]")
         elif action == "NTR之王":
-            user_id = self.db_manager.get_most_download_user_id_by_tag("NTR")
+            user_id = await asyncio.to_thread(self.service.db.get_most_download_user_id_by_tag, "NTR")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【NTR】指数最高的用户");
                 return
-            user = self.db_manager.get_user_by_id(user_id)
+            user = await asyncio.to_thread(self.service.db.get_user_by_id, user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，【NTR】指数最高的用户是{user.UserName}[{user.UserId}]")
         elif action == "最爱开大车":
-            user_id = self.db_manager.get_most_download_user_id_by_tag("年上")
+            user_id = await asyncio.to_thread(self.service.db.get_most_download_user_id_by_tag, "年上")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【最爱开大车】指数最高的用户")
                 return
-            user = self.db_manager.get_user_by_id(user_id)
+            user = await asyncio.to_thread(self.service.db.get_user_by_id, user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，【最爱开大车】指数最高的用户是{user.UserName}[{user.UserId}]")
         elif action == "骨科":
-            user_id = self.db_manager.get_most_download_user_id_by_tag("乱伦")
+            user_id = await asyncio.to_thread(self.service.db.get_most_download_user_id_by_tag, "乱伦")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【骨科】指数最高的用户")
                 return
-            user = self.db_manager.get_user_by_id(user_id)
+            user = await asyncio.to_thread(self.service.db.get_user_by_id, user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，【骨科】指数最高的用户是{user.UserName}[{user.UserId}]")
         elif action == "炼铜":
-            user_id = self.db_manager.get_most_download_user_id_by_tag("萝莉")
+            user_id = await asyncio.to_thread(self.service.db.get_most_download_user_id_by_tag, "萝莉")
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【炼铜】指数最高的用户")
                 return
-            user = self.db_manager.get_user_by_id(user_id)
+            user = await asyncio.to_thread(self.service.db.get_user_by_id, user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，【炼铜】指数最高的用户是{user.UserName}[{user.UserId}]")
         elif action == "自定义":
             custom_tag = args[2]
-            user_id = self.db_manager.get_most_download_user_id_by_tag(custom_tag)
+            user_id = await asyncio.to_thread(self.service.db.get_most_download_user_id_by_tag, custom_tag)
             if user_id is None:
                 yield event.plain_result(f"哎呀！没有找到【{custom_tag}】指数最高的用户")
                 return
-            user = self.db_manager.get_user_by_id(user_id)
+            user = await asyncio.to_thread(self.service.db.get_user_by_id, user_id)
             yield event.plain_result(f"噔噔噔！⭐️截止今天，【{custom_tag}】指数最高的用户是{user.UserName}[{user.UserId}]")
         else:
             yield event.plain_result(
@@ -288,8 +288,8 @@ class JMCosmosPlugin(Star):
 
         yield event.plain_result(f"🔍 正在搜索作者 '{author_name}' 的前 {order} 部作品...")
 
-        # 调用 Provider 获取列表
-        total, results = self.service.provider.search_author_works(author_name, order)
+        # 调用 Provider 获取列表 - 使用 asyncio.to_thread 包装同步操作
+        total, results = await asyncio.to_thread(self.service.provider.search_author_works, author_name, order)
 
         if total == 0:
             yield event.plain_result(f"❌ 未找到作者 '{author_name}' 的作品。")

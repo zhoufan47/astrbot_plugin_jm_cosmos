@@ -65,5 +65,11 @@
         "type": "string",
         "hint": "DiscordPoster工具API的地址",
         "default": ""
-    }
+    },
+  "pdf_password": {
+    "description": "PDF密码",
+    "type": "string",
+    "hint": "PDF密码，用于加密的PDF文件",
+    "default": "123"
+  }
 } 

@@ -17,6 +17,7 @@ class PluginConfig(BaseModel):
     is_jm_login: bool = False
     is_discord_post: bool = False
     discord_post_api_url: Optional[str] = None
+    pdf_password: Optional[str] = None
 
     # 自动处理字符串列表转换 (为了兼容 AstrBot 有时传回逗号分隔字符串的情况)
     @classmethod
