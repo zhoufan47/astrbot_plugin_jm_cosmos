@@ -2,12 +2,13 @@ import aiohttp
 from astrbot.api import logger
 import traceback
 
-async def post_to_discord(comic_id,comic_title,comic_info, tags,cover_path, pdf_path):
+async def post_to_discord(comic_id,comic_title,comic_info, tags,cover_path, pdf_path,api_url:str=""):
     # ==================== 新增 API 推送逻辑 ====================
     try:
         # 1. 配置 API 地址 (请修改为您实际的 API 地址)
-        api_url = "http://192.168.31.35:2238/api/publish"
-
+        # api_url = "http://192.168.31.35:2238/api/publish"
+        if api_url == "":
+            return
         logger.info(f"准备推送漫画数据到 API: {api_url}")
 
         # 3. 构造请求体

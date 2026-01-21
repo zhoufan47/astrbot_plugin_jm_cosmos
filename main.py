@@ -77,18 +77,17 @@ class JMCosmosPlugin(Star):
             if info and pdf_path:
                 try:
                     # 构造 info 消息列表 (discordPoster通常接收一个组件列表或字符串)
-                    # 这里复用 info.to_display_string() 生成文本描述
-                    info_msg_components = [Plain(info.to_display_string())]
-
-                    await discordPoster.post_to_discord(
-                        comic_id,
-                        f"{info.id}-{info.title}",
-                        info.to_display_string(),
-                        info.tags,
-                        cover_path if cover_path else "",  # 确保不传 None
-                        pdf_path
-                    )
-                    logger.info(f"已推送漫画 [{comic_id}] 到 Discord")
+                    if self.cfg.is_discord_post:
+                        await discordPoster.post_to_discord(
+                            comic_id,
+                            f"{info.id}-{info.title}",
+                            info.to_display_string(),
+                            info.tags,
+                            cover_path if cover_path else "",  # 确保不传 None
+                            pdf_path,
+                            api_url=self.cfg.discord_post_api_url
+                        )
+                        logger.info(f"已推送漫画 [{comic_id}] 到 Discord")
                 except Exception as e:
                     logger.error(f"推送到 Discord 失败: {e}")
             if pdf_path:
