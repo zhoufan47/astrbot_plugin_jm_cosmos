@@ -14,10 +14,10 @@ from .service import JMCosmosService
 
 @register(
     "jm_cosmos",
-    "GEMILUXVII",
+    "zhoufan47",
     "全能型JM漫画下载与管理工具 (Refactored)",
-    "2.0.0",
-    "https://github.com/GEMILUXVII/astrbot_plugin_jm_cosmos",
+    "1.9.4",
+    "https://github.com/zhoufan47/astrbot_plugin_jm_cosmos",
 )
 class JMCosmosPlugin(Star):
     def __init__(self, context: Context, config: dict):
@@ -83,7 +83,7 @@ class JMCosmosPlugin(Star):
                     await discordPoster.post_to_discord(
                         comic_id,
                         f"{info.id}-{info.title}",
-                        info_msg_components,
+                        info.to_display_string(),
                         info.tags,
                         cover_path if cover_path else "",  # 确保不传 None
                         pdf_path
