@@ -3,6 +3,7 @@ import os
 import time
 
 from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import Plain, Image, File
 from astrbot.api import logger
@@ -48,14 +49,8 @@ class JMCosmosPlugin(Star):
         await self.service.shutdown()
 
     @filter.command("jm")
-    async def cmd_download(self, event: AstrMessageEvent):
+    async def cmd_download(self, event: AstrMessageEvent,comic_id:str):
         """下载漫画: /jm [ID]"""
-        args = event.message_str.strip().split()
-        if len(args) < 2:
-            yield event.plain_result("请提供漫画ID，例如：/jm 12345")
-            return
-
-        comic_id = args[1]
         sender_id = event.get_sender_id()
         sender_name = event.get_sender_name()
 
@@ -98,14 +93,60 @@ class JMCosmosPlugin(Star):
                 # 直接发送文件组件，AstrBot 会自动处理适配器逻辑
                 yield event.chain_result([File(name=f"{comic_id}.pdf", file=pdf_path)])
 
-    @filter.command("jminfo")
-    async def cmd_info(self, event: AstrMessageEvent):
-        """查看详情: /jminfo [ID]"""
-        args = event.message_str.strip().split()
-        if len(args) < 2:
-            return
 
-        comic_id = args[1]
+    @filter.llm_tool(name="download_comic")
+    async def tool_download(self, event: AstrMessageEvent,comic_id:str)-> MessageEventResult:
+        '''下载本子（漫画）
+
+        Args:
+            comic_id(string): 本子ID、漫画ID
+        '''
+        sender_id = event.get_sender_id()
+        sender_name = event.get_sender_name()
+
+        # 发送"开始下载"的提示
+        yield event.plain_result(f"⏳ 开始请求下载 [{comic_id}]...")
+
+        # 调用业务层
+        result_msg = await self.service.download_comic(comic_id, sender_id, sender_name)
+        yield event.plain_result(result_msg)
+
+        # 如果成功，尝试发送文件
+        if "✅" in result_msg:
+            pdf_path = await self.service.get_pdf_file(comic_id)
+            logger.info(f"已生成文件 [{pdf_path}]")
+            # 2. 获取漫画详情 (用于 Discord 推送信息)
+            info, cover_path = await self.service.get_comic_info(comic_id)
+
+            # 3. 推送到 Discord
+            if info and pdf_path:
+                try:
+                    # 构造 info 消息列表 (discordPoster通常接收一个组件列表或字符串)
+                    if self.cfg.is_discord_post:
+                        await discordPoster.post_to_discord(
+                            comic_id,
+                            f"{info.id}-{info.title}",
+                            info.to_display_string(),
+                            info.tags,
+                            cover_path if cover_path else "",  # 确保不传 None
+                            pdf_path,
+                            api_url=self.cfg.discord_post_api_url
+                        )
+                        logger.info(f"已推送漫画 [{comic_id}] 到 Discord")
+                except Exception as e:
+                    logger.error(f"推送到 Discord 失败: {e}")
+            if pdf_path:
+                file_size_mb = await asyncio.to_thread(os.path.getsize, pdf_path) / (1024 * 1024)
+                if file_size_mb > 90:
+                    yield event.plain_result(f"⚠️ 文件较大 ({file_size_mb:.2f}MB)，可能发送失败。")
+
+                # 直接发送文件组件，AstrBot 会自动处理适配器逻辑
+                yield event.chain_result([File(name=f"{comic_id}.pdf", file=pdf_path)])
+
+
+    @filter.command("jminfo")
+    async def cmd_info(self, event: AstrMessageEvent,comic_id:str):
+        """查看详情: /jminfo [ID]"""
         info, cover_path = await self.service.get_comic_info(comic_id)
 
         if not info:
