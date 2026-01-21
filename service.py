@@ -8,7 +8,7 @@ from .config import PluginConfig
 from .models import ComicInfo
 from .storage import StorageManager
 from .provider import JMProvider
-from .database import DBManager  # 复用您原有的数据库模块
+from .database import DBManager
 
 
 class JMCosmosService:

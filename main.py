@@ -17,7 +17,7 @@ from .service import JMCosmosService
     "jm_cosmos",
     "zhoufan47",
     "全能型JM漫画下载与管理工具 (Refactored)",
-    "1.9.4",
+    "1.9.5",
     "https://github.com/zhoufan47/astrbot_plugin_jm_cosmos",
 )
 class JMCosmosPlugin(Star):
@@ -33,7 +33,6 @@ class JMCosmosPlugin(Star):
             self.context.get_config().get("data_dir", "data"),
             "db", "jm_cosmos.db"
         )
-
         logger.info(f"JMCosmos Refactored Loaded. Debug={self.cfg.debug_mode}")
 
     async def initialize(self):
@@ -60,7 +59,19 @@ class JMCosmosPlugin(Star):
         # 调用业务层
         result_msg = await self.service.download_comic(comic_id, sender_id, sender_name)
         yield event.plain_result(result_msg)
-
+        count = self.service.db.get_comic_download_count(comic_id)
+        if count > 0:
+            last_download_user_id = self.service.db.get_last_download_user(comic_id)
+            first_download_user_id = self.service.db.get_first_download_user(comic_id)
+            last_user = self.service.db.get_user_by_id(last_download_user_id)
+            first_user = self.service.db.get_user_by_id(first_download_user_id)
+            try:
+                yield event.plain_result(
+                    f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_user.UserName} ,上一次下载用户是 {last_user.UserName} ")
+            except Exception as e:
+                logger.error(f"获取用户信息失败: {e}")
+        else:
+            yield event.plain_result(f"漫画[{comic_id}]是第一次下载,你发现了新大陆！")
         # 如果成功，尝试发送文件
         if "✅" in result_msg:
             pdf_path = await self.service.get_pdf_file(comic_id)
@@ -110,13 +121,26 @@ class JMCosmosPlugin(Star):
         # 调用业务层
         result_msg = await self.service.download_comic(comic_id, sender_id, sender_name)
         yield event.plain_result(result_msg)
-
+        count = self.service.db.get_comic_download_count(comic_id)
+        if count > 0:
+            last_download_user_id = self.service.db.get_last_download_user(comic_id)
+            first_download_user_id = self.service.db.get_first_download_user(comic_id)
+            last_user = self.service.db.get_user_by_id(last_download_user_id)
+            first_user = self.service.db.get_user_by_id(first_download_user_id)
+            try:
+                yield event.plain_result(
+                    f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_user.UserName} ,上一次下载用户是 {last_user.UserName} ")
+            except Exception as e:
+                logger.error(f"获取用户信息失败: {e}")
+        else:
+            yield event.plain_result(f"漫画[{comic_id}]是第一次下载,你发现了新大陆！")
         # 如果成功，尝试发送文件
         if "✅" in result_msg:
             pdf_path = await self.service.get_pdf_file(comic_id)
             logger.info(f"已生成文件 [{pdf_path}]")
             # 2. 获取漫画详情 (用于 Discord 推送信息)
             info, cover_path = await self.service.get_comic_info(comic_id)
+
 
             # 3. 推送到 Discord
             if info and pdf_path:
