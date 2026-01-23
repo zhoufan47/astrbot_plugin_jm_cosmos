@@ -55,10 +55,6 @@ class JMCosmosPlugin(Star):
 
         # 发送"开始下载"的提示
         yield event.plain_result(f"⏳ 开始请求下载 [{comic_id}]...")
-
-        # 调用业务层
-        result_msg = await self.service.download_comic(comic_id, sender_id, sender_name)
-        yield event.plain_result(result_msg)
         count = self.service.db.get_comic_download_count(comic_id)
         if count > 0:
             last_download_user_id = self.service.db.get_last_download_user(comic_id)
@@ -72,6 +68,10 @@ class JMCosmosPlugin(Star):
                 logger.error(f"获取用户信息失败: {e}")
         else:
             yield event.plain_result(f"漫画[{comic_id}]是第一次下载,你发现了新大陆！")
+        # 调用业务层
+        result_msg = await self.service.download_comic(comic_id, sender_id, sender_name)
+        yield event.plain_result(result_msg)
+
         # 如果成功，尝试发送文件
         if "✅" in result_msg:
             pdf_path = await self.service.get_pdf_file(comic_id)
