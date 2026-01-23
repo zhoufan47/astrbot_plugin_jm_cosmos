@@ -179,6 +179,17 @@ class JMCosmosPlugin(Star):
 
         components = []
         yield event.plain_result(info.to_display_string())
+        count = self.service.db.get_comic_download_count(comic_id)
+        if count > 0:
+            last_download_user_id = self.service.db.get_last_download_user(comic_id)
+            first_download_user_id = self.service.db.get_first_download_user(comic_id)
+            last_user = self.service.db.get_user_by_id(last_download_user_id)
+            first_user = self.service.db.get_user_by_id(first_download_user_id)
+            try:
+                yield event.plain_result(
+                    f"漫画[{comic_id}]已经被下载了 {count} 次，首次下载用户是 {first_user.UserName} ,上一次下载用户是 {last_user.UserName} ")
+            except Exception as e:
+                logger.error(f"获取用户信息失败: {e}")
         if self.cfg.show_cover and cover_path:
             logger.info(f"已获取漫画的封面 [{cover_path}] 的信息")
             components.append(Image.fromFileSystem(cover_path))
