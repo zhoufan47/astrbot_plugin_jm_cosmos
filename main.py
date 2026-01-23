@@ -17,7 +17,7 @@ from .service import JMCosmosService
     "jm_cosmos",
     "zhoufan47",
     "全能型JM漫画下载与管理工具 (Refactored)",
-    "1.9.5",
+    "1.9.6",
     "https://github.com/zhoufan47/astrbot_plugin_jm_cosmos",
 )
 class JMCosmosPlugin(Star):
@@ -387,4 +387,58 @@ class JMCosmosPlugin(Star):
         for i, (cid, title) in enumerate(results):
             msg_lines.append(f"{i + 1}. 🆔{cid}: {title}")
 
+        yield event.plain_result("\n".join(msg_lines))
+
+    @filter.command("jmhis")
+    async def cmd_history(self, event: AstrMessageEvent):
+        """查询下载历史: /jmhis [ID]"""
+        args = event.message_str.strip().split()
+        if len(args) < 2:
+            yield event.plain_result("请提供漫画ID，例如：/jmhis 12345")
+            return
+
+        comic_id = args[1]
+        
+        # 查询下载历史
+        history_records = await asyncio.to_thread(
+            self.service.db.get_download_history_by_comic, comic_id
+        )
+        
+        if not history_records:
+            yield event.plain_result(f"❌ 没有找到漫画 [{comic_id}] 的下载历史记录")
+            return
+        
+        # 格式化输出
+        msg_lines = [f"📚 漫画 [{comic_id}] 的下载历史 (共{len(history_records)}条):\n"]
+        for user_name, download_time in history_records:
+            # 如果用户名为空或None，显示为匿名用户
+            user_display = user_name if user_name else "匿名用户"
+            msg_lines.append(f"• {user_display} - {download_time}")
+        
+        yield event.plain_result("\n".join(msg_lines))
+
+
+    @filter.llm_tool("jmhis")
+    async def tool_history(self, event: AstrMessageEvent,comic_id:str)->MessageEventResult:
+        '''查询漫画的下载历史
+
+        Args:
+            comic_id(string): 漫画id
+        '''
+        """查询下载历史: /jmhis [ID]"""
+        # 查询下载历史
+        history_records = await asyncio.to_thread(
+            self.service.db.get_download_history_by_comic, comic_id
+        )
+
+        if not history_records:
+            yield event.plain_result(f"❌ 没有找到漫画 [{comic_id}] 的下载历史记录")
+            return
+
+        # 格式化输出
+        msg_lines = [f"📚 漫画 [{comic_id}] 的下载历史 (共{len(history_records)}条):\n"]
+        for user_name, download_time in history_records:
+            # 如果用户名为空或None，显示为匿名用户
+            user_display = user_name if user_name else "匿名用户"
+            msg_lines.append(f"• {user_display} - {download_time}")
         yield event.plain_result("\n".join(msg_lines))

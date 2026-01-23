@@ -372,3 +372,29 @@ class DBManager:
         except Exception as e:
             logger.error(f"获取漫画数据是否存在时发生错误：{e}")
             return False
+
+    def get_download_history_by_comic(self, comic_id: str):
+        """
+        获取特定漫画的下载历史记录
+        Args:
+            comic_id: 漫画ID
+        Returns:
+            列表，每项包含 (用户名, 下载时间)
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # 查询Downloads表中的记录，连接Users表获取用户名
+                cursor.execute("""
+                    SELECT u.UserName, d.DownloadDate
+                    FROM Downloads d
+                    LEFT JOIN Users u ON d.UserId = u.UserId
+                    WHERE d.ComicId = ?
+                    ORDER BY d.DownloadDate DESC
+                """, (comic_id,))
+                
+                results = cursor.fetchall()
+                return results
+        except sqlite3.Error as e:
+            logger.error(f"查询漫画下载历史时发生错误：{e}")
+            return []
