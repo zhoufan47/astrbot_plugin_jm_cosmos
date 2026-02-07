@@ -78,7 +78,8 @@ class JMCosmosPlugin(Star):
             logger.info(f"已生成文件 [{pdf_path}]")
             # 2. 获取漫画详情 (用于 Discord 推送信息)
             info, cover_path = await self.service.get_comic_info(comic_id)
-
+            if info and "yaoi" in info.tags:
+                yield event.plain_result(f"‼警告‼：检测到[{comic_id}]含有[yaoi]标签！这是黑车！")
             # 3. 推送到 Discord
             if info and pdf_path:
                 try:
