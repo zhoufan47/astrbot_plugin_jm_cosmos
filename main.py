@@ -389,6 +389,19 @@ class JMCosmosPlugin(Star):
 
         yield event.plain_result("\n".join(msg_lines))
 
+    @filter.command("jmblackin")
+    async def cmd_black_in(self, event: AstrMessageEvent, comic_id:str):
+        """加入黑名单: /jmblackin [ID]"""
+        await asyncio.to_thread(self.service.db.update_comic_is_backlist, comic_id=comic_id,is_backlist="1")
+        yield event.plain_result(f"✅ 已将漫画 [{comic_id}] 加入黑名单")
+
+
+    @filter.command("jmblackout")
+    async def cmd_black_out(self, event: AstrMessageEvent, comic_id:str):
+        """加入黑名单: /jmblackout [ID]"""
+        await asyncio.to_thread(self.service.db.update_comic_is_backlist, comic_id=comic_id,is_backlist="0")
+        yield event.plain_result(f"✅ 已将漫画 [{comic_id}] 移出黑名单")
+
     @filter.command("jmhis")
     async def cmd_history(self, event: AstrMessageEvent):
         """查询下载历史: /jmhis [ID]"""
@@ -419,7 +432,7 @@ class JMCosmosPlugin(Star):
 
 
     @filter.llm_tool("jmhis")
-    async def tool_history(self, event: AstrMessageEvent,comic_id:str)->MessageEventResult:
+    async def tool_history(self, event: AstrMessageEvent, comic_id:str)->MessageEventResult:
         '''查询漫画的下载历史
 
         Args:
