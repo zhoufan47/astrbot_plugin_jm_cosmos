@@ -1,6 +1,8 @@
 import asyncio
 import os
 import time
+import subprocess
+import sys
 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.core.message.message_event_result import MessageEventResult
@@ -431,6 +433,50 @@ class JMCosmosPlugin(Star):
         
         yield event.plain_result("\n".join(msg_lines))
 
+
+    @filter.command("jmupdate")
+    async def cmd_update_jmcomic(self, event: AstrMessageEvent):
+        """强制更新jmcomic到最新版本: /jmupdate"""
+        yield event.plain_result("⏳ 正在检查并更新 jmcomic 库...")
+        
+        try:
+            # 使用 pip 安装最新版本的 jmcomic
+            result = await asyncio.to_thread(
+                subprocess.run,
+                [sys.executable, "-m", "pip", "install", "--upgrade", "jmcomic"],
+                capture_output=True,
+                text=True,
+                timeout=120  # 设置超时时间为120秒
+            )
+            
+            if result.returncode == 0:
+                # 获取安装的版本信息
+                version_result = await asyncio.to_thread(
+                    subprocess.run,
+                    [sys.executable, "-m", "pip", "show", "jmcomic"],
+                    capture_output=True,
+                    text=True
+                )
+                
+                version_info = "未知版本"
+                for line in version_result.stdout.split('\n'):
+                    if line.startswith('Version:'):
+                        version_info = line.split(':', 1)[1].strip()
+                        break
+                
+                yield event.plain_result(f"✅ jmcomic 已成功更新至最新版本: {version_info}")
+                logger.info(f"jmcomic 已更新至版本: {version_info}")
+            else:
+                error_msg = result.stderr if result.stderr else "未知错误"
+                yield event.plain_result(f"❌ 更新 jmcomic 失败: {error_msg}")
+                logger.error(f"更新 jmcomic 失败: {error_msg}")
+                
+        except subprocess.TimeoutExpired:
+            yield event.plain_result("❌ 更新操作超时，请稍后重试")
+            logger.error("更新 jmcomic 超时")
+        except Exception as e:
+            yield event.plain_result(f"❌ 更新过程中发生异常: {str(e)}")
+            logger.error(f"更新 jmcomic 时发生异常: {e}")
 
     @filter.llm_tool("jmhis")
     async def tool_history(self, event: AstrMessageEvent, comic_id:str)->MessageEventResult:
