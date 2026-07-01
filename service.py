@@ -143,13 +143,13 @@ class JMCosmosService:
                 return result
             else:
                 logger.warning("LLM返回结果为空，使用fallback报告")
-                return self._generate_fallback_report(user_name, user_id, top_10, total_comics, total_tags,False)
+                return self._generate_fallback_report(user_name, user_id, top_10, total_comics, total_tags,is_exception=True)
         except Exception as e:
             logger.error(f"LLM分析失败: {e}")
             return self._generate_fallback_report(user_name, user_id, top_10, total_comics, total_tags,is_exception=True)
 
     def _generate_fallback_report(self, user_name: str, user_id: str, top_10: list,
-                                   total_comics: int, total_tags: int,is_exception:bool) -> str:
+                                   total_comics: int, total_tags: int,is_exception:bool=False) -> str:
         """生成fallback文字分析报告（无LLM时使用）"""
         lines = [
             f"{'=' * 30}",
