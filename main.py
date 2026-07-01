@@ -7,7 +7,7 @@ import sys
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.star import Context, Star, register
-from astrbot.api.message_components import Plain, Image, File
+from astrbot.api.message_components import Plain, Image, File, At
 from astrbot.api import logger
 
 from .thirdpartyapi import discordPoster
@@ -19,7 +19,7 @@ from .service import JMCosmosService
     "jm_cosmos",
     "zhoufan47",
     "全能型JM漫画下载与管理工具 (Refactored)",
-    "1.9.6",
+    "1.10.0",
     "https://github.com/zhoufan47/astrbot_plugin_jm_cosmos",
 )
 class JMCosmosPlugin(Star):
@@ -35,12 +35,24 @@ class JMCosmosPlugin(Star):
             self.context.get_config().get("data_dir", "data"),
             "db", "jm_cosmos.db"
         )
+        self._report_template = ""
         logger.info(f"JMCosmos Refactored Loaded. Debug={self.cfg.debug_mode}")
 
     async def initialize(self):
         try:
             await asyncio.to_thread(time.sleep, 2)
             self.service = await asyncio.to_thread(JMCosmosService, self.cfg, "jm_cosmos", self.db_path)
+
+            # 加载性癖调查HTML模板
+            template_path = os.path.join(os.path.dirname(__file__), 'templates', 'investigation_report.html')
+            if os.path.exists(template_path):
+                with open(template_path, 'r', encoding='utf-8') as f:
+                    self._report_template = f.read()
+                self.service.report_template = self._report_template
+                logger.info(f"性癖调查模板已加载: {template_path}")
+            else:
+                logger.warning(f"性癖调查模板文件不存在: {template_path}")
+
             logger.info("JmCosmos 异步初始化完成……")
         except Exception as e:
             logger.error(f"JmCosmos 异步初始化失败{e}")
@@ -171,6 +183,44 @@ class JMCosmosPlugin(Star):
                 yield event.chain_result([File(name=f"{comic_id}.pdf", file=pdf_path)])
 
 
+    @filter.command("xp大调查")
+    async def cmd_investigate(self, event: AstrMessageEvent):
+        """调查指定用户的性癖: /jm大调查 @用户"""
+        # 从消息中提取@的用户ID
+        target_user_id = None
+        for comp in event.message_obj.message:
+            if isinstance(comp, At) and comp.qq != 'all':
+                target_user_id = str(comp.qq)
+                break
+
+        if not target_user_id:
+            yield event.plain_result("❌ 请@一个用户，例如: /jm大调查 @小明")
+            return
+
+        yield event.plain_result(f"🔍 正在调查用户 [{target_user_id}] 的性癖，请稍候...")
+
+        # 获取LLM provider：优先使用配置指定的，否则使用当前默认模型
+        llm_provider = self.context.get_provider_by_id(
+            self.cfg.llm_provider_id) or self.context.get_using_provider()
+
+        if not llm_provider:
+            yield event.plain_result("❌ 未配置用于文本生成任务的 LLM 提供商。")
+            return
+
+        report_image_path, report_text = await self.service.investigate_user(
+            target_user_id, llm_provider=llm_provider
+        )
+
+        if not report_image_path:
+            yield event.plain_result(report_text)
+            return
+
+        # 先发送文字报告
+        yield event.plain_result(report_text)
+
+        # 再发送报告图片（如果生成成功）
+        yield event.chain_result(report_image_path)
+
     @filter.command("jminfo")
     async def cmd_info(self, event: AstrMessageEvent,comic_id:str):
         """查看详情: /jminfo [ID]"""
@@ -197,6 +247,20 @@ class JMCosmosPlugin(Star):
             logger.info(f"已获取漫画的封面 [{cover_path}] 的信息")
             components.append(Image.fromFileSystem(cover_path))
         yield event.chain_result(components)
+
+    @filter.command("jmpassword")
+    async def jmpassword(self, event: AstrMessageEvent):
+        current_password = self.cfg.pdf_password
+        yield event.plain_result(f"当前密码【{current_password}】")
+
+    @filter.llm_tool("jmpassword")
+    async def tool_history(self, event: AstrMessageEvent)->MessageEventResult:
+        '''查询当前本子的密码
+
+        '''
+        current_password = self.cfg.pdf_password
+        yield event.plain_result(f"当前密码【{current_password}】")
+
 
     @filter.command("jmsearch")
     async def cmd_search(self, event: AstrMessageEvent):

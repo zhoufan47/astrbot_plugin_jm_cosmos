@@ -71,5 +71,12 @@
     "type": "string",
     "hint": "PDF密码，用于加密的PDF文件",
     "default": "123"
-  }
+  },
+  "llm_provider_id": {
+        "description": "用于分析画像的LLM提供商",
+        "hint": "用于性癖调查功能中生成AI分析评论的LLM提供商ID。留空则使用当前默认对话模型。",
+        "type": "string",
+        "default": "",
+        "_special": "select_provider"
+    }
 } 

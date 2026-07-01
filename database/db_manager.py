@@ -290,6 +290,71 @@ class DBManager:
             print(f"获取漫画的最后下载用户时发生错误：{e}")
             return "0"
 
+    def get_download_count_by_user_id(self, user_id):
+        """
+        获取用户的下载次数。
+        Args:
+            user_id: 用户id
+        Returns:
+            一个数字，表示漫画的下载次数。
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""SELECT COUNT(1) from Downloads where userid=?
+                                """, (user_id,))
+                result = cursor.fetchone()  # 获取一条记录
+                if result is None: return "无记录"
+                return result[0]
+        except sqlite3.Error as e:
+            print(f"获取用户的下载次数发生错误：{e}")
+            return "0"
+
+
+    def get_download_tags_count_by_user_id(self, user_id):
+        """
+        获取用户的下载TAG数。
+        Args:
+            user_id: 用户id
+        Returns:
+            一个数字，表示漫画的下载次数。
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                WITH RECURSIVE UserComics AS (
+                        SELECT c.Tags
+                        FROM Downloads d
+                        JOIN Comics c ON d.ComicId = c.ComicId
+                        WHERE d.UserId = ?
+                    ),
+                    TagSplit AS (
+                        SELECT 
+                            TRIM(SUBSTR(Tags, 0, INSTR(Tags || ',', ','))) AS Tag,
+                            SUBSTR(Tags || ',', INSTR(Tags || ',', ',') + 1) AS Remaining
+                        FROM UserComics
+                        WHERE Tags IS NOT NULL AND Tags != ''
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            TRIM(SUBSTR(Remaining, 0, INSTR(Remaining, ','))) AS Tag,
+                            SUBSTR(Remaining, INSTR(Remaining, ',') + 1) AS Remaining
+                        FROM TagSplit
+                        WHERE Remaining != ''
+                    )
+                    SELECT COUNT(DISTINCT Tag) AS DistinctTagCount
+                    FROM TagSplit
+                    WHERE Tag != ''
+                                """, (user_id,))
+                result = cursor.fetchone()  # 获取一条记录
+                if result is None: return "无记录"
+                return result[0]
+        except sqlite3.Error as e:
+            print(f"获取用户的下载TAG数发生错误：{e}")
+            return "0"
+
 
     def get_first_download_user(self, comic_id):
         """
@@ -372,6 +437,50 @@ class DBManager:
         except Exception as e:
             logger.error(f"获取漫画数据是否存在时发生错误：{e}")
             return False
+
+    def get_user_download_comics_with_tags(self, user_id: str):
+        """获取用户下载的所有漫画及其标签"""
+        try:
+            logger.info(f"查询用户下载漫画记录: {user_id}")
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    WITH RECURSIVE UserComics AS (
+    SELECT c.Tags
+    FROM Downloads d
+    JOIN Comics c ON d.ComicId = c.ComicId
+    WHERE d.UserId = ?
+),
+TagSplit AS (
+    SELECT 
+        TRIM(SUBSTR(Tags, 0, INSTR(Tags || ',', ','))) AS Tag,
+        SUBSTR(Tags || ',', INSTR(Tags || ',', ',') + 1) AS Remaining
+    FROM UserComics
+    WHERE Tags IS NOT NULL AND Tags != ''
+    
+    UNION ALL
+    
+    SELECT 
+        TRIM(SUBSTR(Remaining, 0, INSTR(Remaining, ','))) AS Tag,
+        SUBSTR(Remaining, INSTR(Remaining, ',') + 1) AS Remaining
+    FROM TagSplit
+    WHERE Remaining != ''
+)
+SELECT 
+    Tag,
+    COUNT(*) AS TagCount
+FROM TagSplit
+WHERE Tag != ''
+AND Tag !='中文'
+GROUP BY Tag
+ORDER BY TagCount DESC;
+                """, (user_id,))
+                results = cursor.fetchall()
+                logger.info(f"查询到 {len(results)} 条记录")
+                return results
+        except Exception as e:
+            logger.error(f"查询用户下载漫画失败: {e}")
+            return []
 
     def get_download_history_by_comic(self, comic_id: str):
         """

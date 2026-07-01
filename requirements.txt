@@ -1,6 +1,6 @@
 pydantic
 opencc
-jmcomic>=2.6.19
+jmcomic>=2.7.0
 PyYAML>=6.0
-curl_cffi>=0.6.0 
+curl_cffi>=0.15.1b1
 img2pdf
