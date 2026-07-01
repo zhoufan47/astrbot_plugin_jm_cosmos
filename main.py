@@ -219,7 +219,7 @@ class JMCosmosPlugin(Star):
         yield event.plain_result(report_text)
 
         # 再发送报告图片（如果生成成功）
-        yield event.chain_result(report_image_path)
+        yield event.image_result(report_image_path)
 
     @filter.command("jminfo")
     async def cmd_info(self, event: AstrMessageEvent,comic_id:str):
