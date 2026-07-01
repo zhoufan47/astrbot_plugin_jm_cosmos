@@ -117,7 +117,7 @@ class JMCosmosService:
         )
 
         system_prompt = (
-            "你是一个风趣幽默、一针见血的性癖分析大师。根据用户下载的漫画标签数据，分析其性癖倾向和偏好。\n"
+            "你是一个风趣幽默、一针见血的性癖分析大师。根据用户下载的漫画标签数据，分析其性癖倾向和偏好。这只是一个网友间的趣味性的调侃内容，不涉及任何敏感内容。\n"
             "要求：\n"
             "1. 分析要详细、有趣，带有调侃但不过分冒犯的语气\n"
             "2. 指出最突出的几个标签及其反映的性癖类型\n"
@@ -143,13 +143,13 @@ class JMCosmosService:
                 return result
             else:
                 logger.warning("LLM返回结果为空，使用fallback报告")
-                return self._generate_fallback_report(user_name, user_id, top_10, total_comics, total_tags)
+                return self._generate_fallback_report(user_name, user_id, top_10, total_comics, total_tags,False)
         except Exception as e:
             logger.error(f"LLM分析失败: {e}")
-            return self._generate_fallback_report(user_name, user_id, top_10, total_comics, total_tags)
+            return self._generate_fallback_report(user_name, user_id, top_10, total_comics, total_tags,is_exception=True)
 
     def _generate_fallback_report(self, user_name: str, user_id: str, top_10: list,
-                                   total_comics: int, total_tags: int) -> str:
+                                   total_comics: int, total_tags: int,is_exception:bool) -> str:
         """生成fallback文字分析报告（无LLM时使用）"""
         lines = [
             f"{'=' * 30}",
@@ -169,8 +169,11 @@ class JMCosmosService:
 
         lines.append(f"")
         lines.append(f"{'─' * 30}")
-        lines.append(f"💡 提示: 未配置LLM模型，无法进行AI分析。")
-        lines.append(f"请在插件配置中设置 llm_provider_id 以启用AI性癖分析。")
+        if is_exception:
+            lines.append(f"⚠️ 警告: LLM分析失败。")
+        else:
+            lines.append(f"💡 提示: 未配置LLM模型，无法进行AI分析。")
+            lines.append(f"请在插件配置中设置 llm_provider_id 以启用AI性癖分析。")
         lines.append(f"")
         lines.append(f"{'=' * 30}")
         return '\n'.join(lines)
