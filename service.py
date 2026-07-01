@@ -111,7 +111,7 @@ class JMCosmosService:
         tag_list_str = '\n'.join([f"{i+1}. {tag}: {count}次" for i, (tag, count) in enumerate(top_10)])
 
         prompt = (
-            f"用户「{user_name}」在JMComic下载了 {total_comics} 本漫画，累计 {total_tags} 个标签。\n\n"
+            f"用户「{user_name}」下载了 {total_comics} 本漫画，累计 {total_tags} 个标签。\n\n"
             f"其前10类标签分布如下：\n{tag_list_str}\n\n"
             f"请根据以上数据分析该用户的性癖倾向。"
         )
