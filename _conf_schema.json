@@ -5,6 +5,12 @@
         "hint": "可访问的禁漫镜像站域名，不需要添加http或https前缀，默认参数jmcomic-zzz.one，建议不要修改",
         "default": ["jmcomic-zzz.one"]
     },
+    "mode":{
+      "description": "下载模式",
+      "hint":"APP端不限ip兼容性好，网页端限制ip地区但效率高",
+      "options": ["html", "api"],
+      "default":"html"
+    },
     "proxy": {
         "description": "代理服务器",
         "type": "string",

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+    <meta name="viewport" content="width=825, height=900">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'PingFang SC', 'Microsoft YaHei', 'STHeiti', sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: #e0e0e0;
+        padding: 40px;
+        width: 800px;
+    }
+    .container {
+        background: rgba(255,255,255,0.05);
+        border-radius: 20px;
+        padding: 35px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-bottom: 25px;
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+    }
+    .header h1 {
+        font-size: 28px;
+        background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+    }
+    .header .subtitle {
+        font-size: 14px;
+        color: #888;
+    }
+    .info-grid {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 25px;
+        gap: 15px;
+    }
+    .info-card {
+        background: rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 15px 20px;
+        text-align: center;
+        flex: 1;
+    }
+    .info-card .label {
+        font-size: 12px;
+        color: #aaa;
+        margin-bottom: 5px;
+    }
+    .info-card .value {
+        font-size: 22px;
+        font-weight: bold;
+        color: #ffd93d;
+    }
+    .section {
+        margin-bottom: 25px;
+    }
+    .section-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #ffd93d;
+        margin-bottom: 15px;
+        padding-left: 12px;
+        border-left: 4px solid #ff6b6b;
+    }
+    .tag-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .tag-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .tag-rank {
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: bold;
+        color: white;
+        flex-shrink: 0;
+    }
+    .tag-name {
+        width: 100px;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    .tag-bar {
+        flex: 1;
+        height: 22px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 11px;
+        overflow: hidden;
+        position: relative;
+    }
+    .tag-bar-fill {
+        height: 100%;
+        border-radius: 11px;
+        background: linear-gradient(90deg, #6bcb77, #4ecdc4, #45b7d1);
+        transition: width 0.5s;
+    }
+    .tag-pct {
+        width: 50px;
+        text-align: right;
+        font-size: 13px;
+        color: #ffd93d;
+    }
+    .chart-section {
+        text-align: center;
+        margin-bottom: 25px;
+        position: relative;
+        height: 350px;
+    }
+    .chart-section canvas {
+        max-width: 100%;
+        max-height: 320px;
+    }
+    .analysis-text {
+        background: rgba(0,0,0,0.2);
+        border-radius: 12px;
+        padding: 20px;
+        font-size: 14px;
+        line-height: 1.8;
+        white-space: pre-wrap;
+        color: #ccc;
+    }
+    .footer {
+        text-align: center;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        font-size: 12px;
+        color: #666;
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🔞 性癖调查报告</h1>
+        <div class="subtitle">JM Cosmos - AI 性癖分析系统</div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="label">🎯 调查对象</div>
+            <div class="value" style="font-size:16px; color:#fff;">{{ user_name }}</div>
+        </div>
+        <div class="info-card">
+            <div class="label">📚 下载漫画</div>
+            <div class="value">{{ total_comics }} 本</div>
+        </div>
+        <div class="info-card">
+            <div class="label">🏷️ 总标签数</div>
+            <div class="value">{{ total_tags }} 个</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📈 前10类标签排行</div>
+        <div class="tag-list">
+            {% for tag, count, pct in top_tags %}
+            <div class="tag-item">
+                <div class="tag-rank">{{ loop.index }}</div>
+                <div class="tag-name">{{ tag }}</div>
+                <div class="tag-bar">
+                    <div class="tag-bar-fill" style="width: {{ pct }}%"></div>
+                </div>
+                <div class="tag-pct">{{ pct }}%</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">🥧 标签分布饼图</div>
+        <div class="chart-section">
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">💡 AI 性癖分析与评价</div>
+        <div class="analysis-text">{{ report_text }}</div>
+    </div>
+
+    <div class="footer">
+        JM Cosmos Plugin | 数据仅供娱乐参考
+    </div>
+</div>
+
+<script>
+const chartData = {{ chart_data | safe }};
+const ctx = document.getElementById('pieChart').getContext('2d');
+new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: chartData.map(d => d.label),
+        datasets: [{
+            data: chartData.map(d => d.count),
+            backgroundColor: [
+                '#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF',
+                '#FF9F40','#E7E9ED','#FF6384','#C9CBCF','#7BC8A4'
+            ],
+            borderWidth: 1,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: {
+                    color: '#e0e0e0',
+                    font: { size: 12 }
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const total = context.dataset.data.reduce((a,b) => a + b, 0);
+                        const pct = ((context.parsed / total) * 100).toFixed(1);
+                        return context.label + ': ' + context.parsed + ' (' + pct + '%)';
+                    }
+                }
+            }
+        }
+    }
+});
+</script>
+</body>
+</html>
