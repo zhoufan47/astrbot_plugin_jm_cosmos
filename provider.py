@@ -91,6 +91,13 @@ class JMProvider:
             },
             # 配置插件：下载完自动转PDF
             "plugins": {
+                "after_init":[{
+                  "plugin":"login",
+                    "kwargs": {
+                        "username": self.config.jm_username,
+                        "password": self.config.jm_passwd
+                    }
+                }],
                 "after_album": [{
                     "plugin": "img2pdf",
                     "kwargs": {
