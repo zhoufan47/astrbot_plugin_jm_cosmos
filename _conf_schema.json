@@ -9,6 +9,7 @@
       "description": "下载模式",
       "hint":"APP端不限ip兼容性好，网页端限制ip地区但效率高",
       "options": ["html", "api"],
+      "type": "string",
       "default":"html"
     },
     "proxy": {
