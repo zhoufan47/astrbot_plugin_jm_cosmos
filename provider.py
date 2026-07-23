@@ -127,7 +127,7 @@ class JMProvider:
                 logger.info(f"JMComic 登录尝试: {self.config.jm_username},{self.config.jm_passwd}")
                 login_resp = self.client.login(self.config.jm_username, self.config.jm_passwd)
                 logger.info(f"JMComic 登录返回信息: {login_resp}")
-                logger.info(f"JMComic 登录成功: {self.config.jm_username}")
+                logger.info(f"JMComic 登录成功cookies信息: {self.client.get_cookies}")
             return True
         except Exception as e:
             logger.error(f"JMComic 登录失败: {e}")
