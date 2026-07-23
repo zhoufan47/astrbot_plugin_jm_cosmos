@@ -19,7 +19,7 @@ from .service import JMCosmosService
     "jm_cosmos",
     "zhoufan47",
     "全能型JM漫画下载与管理工具 (Refactored)",
-    "1.10.0",
+    "1.10.1",
     "https://github.com/zhoufan47/astrbot_plugin_jm_cosmos",
 )
 class JMCosmosPlugin(Star):
