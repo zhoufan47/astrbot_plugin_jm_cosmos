@@ -63,7 +63,6 @@ class JMProvider:
         option_dict = {
             "client": {
                 "impl": self.config.mode,
-                "domain": self.config.domain_list,
                 "retry_times": 5,
                 "postman": {
                     "meta_data": {
