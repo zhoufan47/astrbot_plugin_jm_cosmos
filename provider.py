@@ -118,7 +118,8 @@ class JMProvider:
                 self.client = self.option.new_jm_client()
             if self.config.is_jm_login and self.config.jm_username and self.config.jm_passwd:
                 logger.info(f"JMComic 登录尝试: {self.config.jm_username},{self.config.jm_passwd}")
-                self.client.login(self.config.jm_username, self.config.jm_passwd)
+                login_resp = self.client.login(self.config.jm_username, self.config.jm_passwd)
+                logger.info(f"JMComic 登录返回信息: {login_resp}")
                 logger.info(f"JMComic 登录成功: {self.config.jm_username}")
             return True
         except Exception as e:
